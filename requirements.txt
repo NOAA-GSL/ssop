@@ -3,7 +3,7 @@ certifi
 cffi
 charset-normalizer
 cryptography
-Django==3.2.15
+Django==3.2.16
 gunicorn
 idna
 oauthlib

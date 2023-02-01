@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+
+<!-- Container -->
+<div id="container">
+{% block content %}
+
+<div>
+<p><b>Connections by Project</b>
+<hr>
+<img src="/ssop/static/graphs/cbp.jpeg">
+<hr>
+</div>
+
+{% if attributes %}
+  {% for attr in attributes %}
+      <a target="_blank" href="/ssop/static/graphs/{{attr.0}}.jpeg">
+      <img alt="A directed graph of connections between unique users and web browsers for project {{attr.0}}" src="/ssop/static/graphs/{{attr.0}}.jpeg">
+      </a>
+      <hr>Connections to {{attr.0}}
+      <hr>
+  {% endfor %}
+{% endif %}
+
+{% if debugprint %}
+  <hr>
+  <b>Data:</b>
+  debugprint: <PRE>{{debugprint}}</PRE>
+{% endif %}
+
+{% endblock %}
+</div>

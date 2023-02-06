@@ -546,6 +546,7 @@ class AttributeGroup(models.Model):
     name = models.CharField(max_length=150, default='setme')
     grouptype = models.ForeignKey('sites.NodeType', null=True, blank=True, on_delete=models.CASCADE)
     attrs = models.ManyToManyField(Attributes, related_name='AttributeGroup_attrs', verbose_name='Attrs')
+    decodedattrs = models.TextField(default='setme')
     #graphnode = models.ForeignKey('sites.GraphNode', null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
@@ -567,7 +568,18 @@ class AttributeGroup(models.Model):
             #    gn = GraphNode(name=self.name, nodetype=nt) 
             #    gn.save()
             #    self.graphnode = gn
-            need_to_save = True 
+            need_to_save = True
+
+        if 'setme' in self.decodedattrs:
+            if self.attrs is not None:
+                dattrs = "Decoded attributes not available."
+                if settings.DEBUG:
+                    dattrs = ''
+                    for a in self.attrs:
+                        dattrs = dattrs + a.clearattrs() + ', '
+                    dattrs = dattrs[:-2]
+                self.decodedattrs = dattrs
+                need_to_save = True
         return need_to_save
 
     def save(self, *args, **kwargs):
@@ -585,6 +597,9 @@ class AttributeGroup(models.Model):
         if msg.endswith(', '):
             msg =  msg[:-2]
         return msg
+
+    def clearattrs(self):
+        return self.decodedattrs 
 
 
 class GraphNode(models.Model):

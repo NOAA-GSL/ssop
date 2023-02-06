@@ -191,15 +191,18 @@ def test_attributeGroupFromAttributes(grouptype, attributelist):
     logger.info(msg)
 
     qs = None
-    for attr in attributelist.get_attrs():
+    for attr in attributelist:
         alist = list(Attributes.objects.filter(attrs=attr))
         msg = "   alist for " + str(attr) + " is: " + str(alist)
         logger.info(msg)
 
     qs = AttributeGroup.objects.filter(grouptype=grouptype, attrs__in=attributelist)
     if qs.count() == int(0):
-        attrsgroup = AttributeGroup(grouptype=grouptype, attrs__in=attributelist)
+        attrsgroup = AttributeGroup(grouptype=grouptype)
         attrsgroup.save()
+        attrsgroup.attrs.set(attributelist)
+        attrsgroup.save()
+
         msg = "   created attrsgroup: " + str(attrsgroup) + " with grouptype " + str(grouptype)
     else:
         msg = "qs.count = " + str(qs.count())
@@ -261,7 +264,7 @@ def ldg_authenticated(request):
             connattrslist.append(xffattrs)
         connattrslist.append(sechuaattrs)
         connattrslist.append(uaattrs)
-        connattrsgroup = attributeGroupFromAttributes(conngrouptype, connattrslist)
+        connattrsgroup = test_attributeGroupFromAttributes(conngrouptype, connattrslist)
         # needed by uu so browser info can be tracked
         #for a in attrslist:
         #    uuattrslist.append(a)
@@ -439,8 +442,7 @@ def ldg_authenticated(request):
             thisattr = attributesFromDecodedFp(fingerprint,  encrypted_attrs)
             uuattrslist.append(thisattr)
 
-        #connattrsgroup = attributeGroupFromAttributes(conngrouptype, connattrslist)
-        nameattrsgroup = attributeGroupFromAttributes(namegrouptype, uuattrslist)
+        nameattrsgroup = test_attributeGroupFromAttributes(namegrouptype, uuattrslist)
         enuu = str(uu).encode()
         #msg = "    enuu = " + str(enuu)
         #logger.info(msg)

@@ -226,8 +226,8 @@ if SSOP_DEPLOY_ENV == "Development":
 elif SSOP_DEPLOY_ENV == "Integration":
     DEPLOY_ENV_COLOR = '#99ff99'  # light green
     DEPLOY_ENV_TEXT_COLOR = 'black'
-    SERVER_FQDN = '?.gsd.esrl.noaa.gov'
-    SERVER_IP = '137.75.164.y'
+    SERVER_FQDN = 'gsl-webssop.gsd.esrl.noaa.gov'
+    SERVER_IP = '137.75.133.109'
 
 elif SSOP_DEPLOY_ENV == "Production":
     DEPLOY_ENV_COLOR = "#3399ff"  # blue
@@ -236,7 +236,7 @@ elif SSOP_DEPLOY_ENV == "Production":
     SERVER_IP = '137.75.164.x'
 
 else:
-    msg = "environment variable QRBA3_DEPLOY_ENVIRONMENT not set.  " \
+    msg = "environment variable SSOP_DEPLOY_ENVIRONMENT not set.  " \
           "Supported values: Development, Integration, Production"
     print(msg)
     sys.exit(-1)
@@ -272,20 +272,13 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/3.2/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_L10N = True
-
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
@@ -307,8 +300,8 @@ LOGINDOTGOV_ACR = 'http://idmanagement.gov/ns/assurance/ial/2'
 LOGINDOTGOV_CLIENT_ASSERTION_TYPE = 'urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer'
 LOGINDOTGOV_SCOPE = 'openid+email+profile+first_name+last_name'
 LOGINDOTGOV_RETURN_TO = 'https://gsl.noaa.gov/ssop/ldg_authenticated'
-LOGINDOTGOV_AUTHENTICATED_REDIRECT = 'https://gsl.noaa.gov/ssop/static/test.html'
-LOGINDOTGOV_AUTHENTICATED_REDIRECT2 = 'https://gsl.noaa.gov/ssop/static/test2.html'
+#LOGINDOTGOV_AUTHENTICATED_REDIRECT = 'https://gsl.noaa.gov/ssop/static/test.html'
+#LOGINDOTGOV_AUTHENTICATED_REDIRECT2 = 'https://gsl.noaa.gov/ssop/static/test2.html'
 LOGINDOTGOV_ERROR_REDIRECT = 'https://gsl.noaa.gov/ssop/oops'
 LOGINDOTGOV_LOGOUT_URI = 'https://gsl.noaa.gov/ssop/sites'
 
@@ -333,10 +326,10 @@ with open(keyfile) as privkey:
 JWTSAFELEN = 30
 
 # JWT expiration time in seconds -- will be added to current UTC
-JWTEXP = 3600
+JWTEXP = 300
 
 # Attributes one-time access token lifetime in seconds
-ATTRS_ACCESS_TOKEN_LIFETIME = 600
+ATTRS_ACCESS_TOKEN_LIFETIME = JWTEXP
 DATA_AT_REST_KEY_ATTRS = get_secret('DATA_AT_REST_KEY_ATTRS')
 
 # for graphing

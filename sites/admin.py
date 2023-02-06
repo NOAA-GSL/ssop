@@ -51,7 +51,7 @@ class UniqueuserAdmin(admin.ModelAdmin):
 
 class AttributeGroupAdmin(admin.ModelAdmin):
     #list_display = ('name', 'attributes', 'graph_node_id')
-    list_display = ('name', 'grouptype', 'clearattrs', 'attributes')
+    list_display = ('name', 'grouptype', 'attributes')
     list_display_links = list_display
     readonly_fields = list_display
 

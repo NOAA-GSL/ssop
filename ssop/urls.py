@@ -26,9 +26,6 @@ urlpatterns = [
     path('logout/', logout, name='logout'),
     path('logout/<str:connection_state>/', logout, name='logout'),
     path('sites/', include(('sites.urls', 'sites'), namespace='sb')),
-    path('sb/', include(('sites.urls', 'sites'), namespace='sb')),
-    path('ssop/sites/', include(('sites.urls', 'sites'), namespace='ssop_sb')),
-    path('ssop/sb/', include(('sites.urls', 'sites'), namespace='ssop_sb')),
     path('', index, 'index'),
     path('ssop/', index, 'index'),
     path('ssop/ldg_authenticated', ldg_authenticated, name='ssop_ldg_authenticated'),
@@ -45,4 +42,7 @@ urlpatterns = [
     path('ssop/demohdr', demoapp_authorization, name='ssop_demohdr'),
     path('ssop/firewxtb/', firewxtb, name='ssop_firewxtb'),
     path('ssop/firewxoops/', firewxoops, name='ssop_firewxoops'),
+    path('sb/', include(('sites.urls', 'sites'), namespace='sb')),
+    path('ssop/sites/', include(('sites.urls', 'sites'), namespace='ssop_sb')),
+    path('ssop/sb/', include(('sites.urls', 'sites'), namespace='ssop_sb')),
 ]

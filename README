@@ -6,9 +6,9 @@ Welcome to ssop, a Single Sign On Portal which uses login.gov as an Identity Ver
    NOTE: Python 3.6 not being supported WRT crypto -- no point in staring at 3.7
 4) Upgrade pip to latest and then pip install -r requirements.txt
 
-5) Use https://developers.login.gov to establish a sandbox environment, create a team (yourself and collaborators if desired), then create and app.
-6) Update LOGINDOTGOV related parameters in ssop/settings.py according to the sandbox app created in step 5.
-7) Search for occurances of 'holub'.  These paths must be changed per your environment.
+5) If needed, use https://developers.login.gov to establish a sandbox environment, create a team (yourself and collaborators if desired), then create and app.
+6) Update LOGINDOTGOV_ related parameters in ssop/settings.py with results from 5 or from a configuration managment system (CMS).
+7) Update JWT_ related paramerters as needed or from a CMS.
 
 See the images in the screenshot folder to aid with LOGINDOTGOV settings.  Also, a final user attributes screen can be seen.
 
@@ -84,8 +84,7 @@ SELINUX content and user types:
    sudo chcon -t httpd_sys_script_exec_t _openssl.abi3.so _rust.abi3.so _cffi_backend.cpython-38-x86_64-linux-gnu.so 
 
    # Logging
-   sudo chcon -t httpd_log_t /home/holub/logs/ssop/django_*
-
+   sudo chcon -t httpd_log_t /path_to/logs/ssop/django_*
 
 ----------------------------------------------
 

@@ -156,6 +156,9 @@ class Project(models.Model):
     def append_access_token(self):
         return self.queryparam
 
+    def get_fields(self):
+        return [(field.name, getattr(self,field.name)) for field in Project._meta.fields]
+
 
 class Attributes(models.Model):
     fingerprint = models.CharField(max_length=150, default='setme')
@@ -541,12 +544,25 @@ class Organization(models.Model):
         if self.initstate():
             super(Organization, self).save(*args, **kwargs)
 
+    def get_fields(self):
+        retlist =  []
+        for field in Organization._meta.fields:
+            k = field.name
+            v = getattr(self,field.name)
+            if v is None:
+                v = "None"
+            if str(k) == 'updated':
+                v = str(v)
+            retlist.append((k,v))
+            retlist.append((k,v))
+        return retlist
+
 
 class AttributeGroup(models.Model):
     name = models.CharField(max_length=150, default='setme')
     grouptype = models.ForeignKey('sites.NodeType', null=True, blank=True, on_delete=models.CASCADE)
     attrs = models.ManyToManyField(Attributes, related_name='AttributeGroup_attrs', verbose_name='Attrs')
-    decodedattrs = models.TextField(default='setme')
+    #decodedattrs = models.TextField(default='setme')
     #graphnode = models.ForeignKey('sites.GraphNode', null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
@@ -570,16 +586,16 @@ class AttributeGroup(models.Model):
             #    self.graphnode = gn
             need_to_save = True
 
-        if 'setme' in self.decodedattrs:
-            if self.attrs is not None:
-                dattrs = "Decoded attributes not available."
-                if settings.DEBUG:
-                    dattrs = ''
-                    for a in self.attrs:
-                        dattrs = dattrs + a.clearattrs() + ', '
-                    dattrs = dattrs[:-2]
-                self.decodedattrs = dattrs
-                need_to_save = True
+        #if 'setme' in self.decodedattrs:
+        #    if self.attrs is not None:
+        #        dattrs = "Decoded attributes not available."
+        #        if settings.DEBUG:
+        #            dattrs = ''
+        #            for a in self.attrs:
+        #                dattrs = dattrs + a.clearattrs() + ', '
+        #            dattrs = dattrs[:-2]
+        #        self.decodedattrs = dattrs
+        #        need_to_save = True
         return need_to_save
 
     def save(self, *args, **kwargs):

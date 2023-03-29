@@ -2,11 +2,11 @@ asgiref==3.5.2
 backports.zoneinfo==0.2.1
 boto3==1.26.79
 botocore==1.29.79
-certifi==2022.9.24
+certifi==2022.12.7
 cffi==1.15.1
 charset-normalizer==2.1.1
 contourpy==1.0.6
-cryptography==38.0.3
+cryptography==40.0.1
 cycler==0.11.0
 Django==4.1.7
 django-extensions==3.2.1
@@ -32,7 +32,7 @@ pyclean==2.2.0
 pycparser==2.21
 pydot==1.4.2
 PyJWT==2.6.0
-pyOpenSSL==22.1.0
+pyOpenSSL==23.1.1
 pyparsing==3.0.9
 python-dateutil==2.8.2
 python3-saml==1.15.0

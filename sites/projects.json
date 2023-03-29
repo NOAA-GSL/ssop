@@ -5,8 +5,8 @@
            "enabled": "True",
            "verbose_name": "View your user attributes",
            "organization": "GSL",
-           "return_to": "https://gsl.noaa.gov/ssop/ldg_authenticated",
-           "error_redirect": "https://gsl.noaa.gov/ssop/oops"
+           "return_to": "https://gsl.noaa.gov/ssopsb/ldg_authenticated",
+           "error_redirect": "https://gsl.noaa.gov/ssopsb/oops"
           },
   "demopy": {
            "display_order": 2,
@@ -14,8 +14,8 @@
            "enabled": "True",
            "verbose_name": "A demonstration view using python",
            "organization": "GSL -- ITS",
-           "return_to": "https://gsl.noaa.gov/ssop/demopy",
-           "error_redirect": "https://gsl.noaa.gov/ssop/oops"
+           "return_to": "https://gsl.noaa.gov/ssopsb/demopy",
+           "error_redirect": "https://gsl.noaa.gov/ssopsb/oops"
           },
   "demoajax": {
            "display_order": 3,
@@ -23,8 +23,8 @@
            "enabled": "True",
            "verbose_name": "A demonstration using AJAX",
            "organization": "GSL -- ITS",
-           "return_to": "https://gsl.noaa.gov/ssop/examples/demoajax.html",
-           "error_redirect": "https://gsl.noaa.gov/ssop/oops"
+           "return_to": "https://gsl.noaa.gov/ssopsb/examples/demoajax.html",
+           "error_redirect": "https://gsl.noaa.gov/ssopsb/oops"
           },
   "firewxtb": {
            "display_order": 4,
@@ -32,8 +32,8 @@
            "enabled": "True",
            "verbose_name": "Fire Weather Testbed",
            "organization": "GSL -- WIDS",
-           "return_to": "https://gsl.noaa.gov/ssop/firewxtb",
-           "error_redirect": "https://gsl.noaa.gov/ssop/firewxtboops"
+           "return_to": "https://gsl.noaa.gov/ssopsb/firewxtb",
+           "error_redirect": "https://gsl.noaa.gov/ssopsb/firewxtboops"
           },
   "nvods": {
            "display_order": 5,
@@ -51,7 +51,7 @@
            "verbose_name": "Dynamic Ensemble-based Scenarios for IDSS",
            "organization": "GSL -- WIDS - WIZARD",
            "return_to": "https://sites.gsl.noaa.gov/desi/",
-           "error_redirect": "https://gsl.noaa.gov/ssop/oops"
+           "error_redirect": "https://gsl.noaa.gov/ssopsb/oops"
           },
   "awspub": {
            "display_order": 7,
@@ -60,7 +60,7 @@
            "verbose_name": "GSL AWS Public Nginx",
            "organization": "GSL -- WIDS - WIZARD",
            "return_to": "https://sites.gsl.noaa.gov/test-js2/",
-           "error_redirect": "https://gsl.noaa.gov/ssop/oops"
+           "error_redirect": "https://gsl.noaa.gov/ssopsb/oops"
           },
   "mats-int": {
            "display_order": 8,
@@ -78,6 +78,6 @@
            "verbose_name": "Rapid Refresh",
            "organization": "GSL -- ASCEND",
            "return_to": "https://rapidrefresh.noaa.gov",
-           "error_redirect": "https://gsl.noaa.gov/ssop/oops"
+           "error_redirect": "https://gsl.noaa.gov/ssopsb/oops"
           }
 }

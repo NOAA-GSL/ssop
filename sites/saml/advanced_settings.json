@@ -1,0 +1,44 @@
+{
+    "security": {
+        "nameIdEncrypted": false,
+        "authnRequestsSigned": true,
+        "logoutRequestSigned": false,
+        "logoutResponseSigned": false,
+        "signMetadata": false,
+        "wantMessagesSigned": false,
+        "wantAssertionsSigned": true,
+        "wantNameId" : false,
+        "wantNameIdEncrypted": false,
+        "wantAssertionsEncrypted": false,
+        "allowSingleLabelDomains": false,
+        "signatureAlgorithm": "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
+        "digestAlgorithm": "http://www.w3.org/2001/04/xmlenc#sha265",
+        "rejectDeprecatedAlgorithm": false,
+        "requestedAuthnContext": ["urn:oasis:names:tc:SAML:2.0:ac:classes:Smartcard"],
+        "requestedAuthnContextComparison": "urn:oasis:names:tc:SAML:2.0:ac:classes:Smartcard"
+    },
+    "contactPerson": {
+        "administrative": {
+            "givenName": "OAR/GSL/ITS",
+            "emailAddress": "kirk.l.holub@noaa.gov"
+        },
+        "technical": {
+            "givenName": "KirkHolub",
+            "emailAddress": "kirk.l.holub@noaa.gov"
+        },
+        "support": {
+            "SurName": "ITS-SSG",
+            "Company": "OAR/GSL",
+            "TelephoneNumber": "303-497-4357",
+            "givenName": "GSL System Support Group",
+            "emailAddress": "help.ssg.gsl@noaa.gov"
+        }
+    },
+    "organization": {
+        "en-US": {
+            "name": "OAR/GSL/ITS",
+            "displayname": "OAR/GSL/ITS",
+            "url": "https://gsl.noaa.gov"
+        }
+    }
+}

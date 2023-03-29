@@ -17,32 +17,40 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
-from sites.views import (index, ldg, ldg_authenticated, logout, ldg_auth_error, oops, demoapp_python, demoapp_authorization, firewxtb, firewxoops)
+from sites.views import (index, ldg, ldg_authenticated, logout, ldg_auth_error, oops, demoapp_python, demoapp_authorization, attrs, metadata, pubcert, pubcertol)
 
+#urlpatterns = [
+#    path('admin/', admin.site.urls),
+#    path('ssopsb/admin/', admin.site.urls),
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('adminssop/', admin.site.urls),
+    path('ssopsb/adminssop/', admin.site.urls),
     path('ldg_authenticated/', ldg_authenticated, name='ldg_authenticated'),
     path('ldg/', ldg, name='ldg'),
+    path('ldg/<str:project_name>/', ldg, name='ldg'),
     path('logout/', logout, name='logout'),
     path('logout/<str:connection_state>/', logout, name='logout'),
-    path('sites/', include(('sites.urls', 'sites'), namespace='sb')),
-    path('', index, 'index'),
-    path('ssop/', index, 'index'),
-    path('ssop/ldg_authenticated', ldg_authenticated, name='ssop_ldg_authenticated'),
-    path('ssop/ldg/', ldg, name='ldg'),
-    path('ssop/ldg/<str:project_name>/', ldg, name='ldg'),
-    path('ssop/login/', ldg, name='login'),
-    path('ssop/logout/', logout, name='ssop_logout'),
-    path('ssop/logout/<str:connection_state>', logout, name='ssop_logout'),
-    path('ldg_authenticated', ldg_authenticated, name='ssop_ldg_authenticated'),
-    path('ldg/', ldg, name='ldg'),
-    path('ssop/ldg_auth_error', ldg_auth_error, name='ldg_auth_error'),
-    path('ssop/oops/', oops, name='oops'),
-    path('ssop/demopy', demoapp_python, name='ssop_demopy'),
-    path('ssop/demohdr', demoapp_authorization, name='ssop_demohdr'),
-    path('ssop/firewxtb/', firewxtb, name='ssop_firewxtb'),
-    path('ssop/firewxoops/', firewxoops, name='ssop_firewxoops'),
-    path('sb/', include(('sites.urls', 'sites'), namespace='sb')),
-    path('ssop/sites/', include(('sites.urls', 'sites'), namespace='ssop_sb')),
-    path('ssop/sb/', include(('sites.urls', 'sites'), namespace='ssop_sb')),
+    path('ssopsb/', include(('sites.urls', 'sites'), namespace='ssopsb')),
+    path('ssopsb/sites/', include(('sites.urls', 'sites'), namespace='ssopsb')),
+    path('ssopsb/ldg_auth_error', ldg_auth_error, name='ssopsb_ldg_auth_error'),
+    path('ssopsb/oops/', oops, name='ssopsb_oops'),
+    path('ssopsb/demopy', demoapp_python, name='ssopsb_demoapp_python'),
+    path('ssopsb/demohdr', demoapp_authorization, name='ssopsb_demohdr'),
+    path('ssopsb/ldg_authenticated', ldg_authenticated, name='ssopsb_ldg_authenticated'),
+    path('ssopsb/ldg/', ldg, name='ldg'),
+    path('ssopsb/ldg/<str:project_name>/', ldg, name='ldg'),
+    path('ssopsb/login/', ldg, name='login'),
+    path('ssopsb/logout/', logout, name='ssopsb_logout'),
+    path('ssopsb/logout/<str:connection_state>', logout, name='ssopsb_logout'),
+    path('', index),
+    path('ssopsb/', index),
+    path('pubcert/', pubcert),
+    path('attrs/', attrs, name='attrs'),
+    path('metadata/', metadata, name='metadata'),
+    path('pubcertol/', pubcertol),
+    path('ssopsb/attrs/', attrs, name='attrs'),
+    path('ssopsb/metadata/', metadata, name='metadata'),
+    path('ssopsb/pubcert/', pubcert),
+    path('ssopsb/pubcertol/', pubcertol)
 ]
+

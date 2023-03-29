@@ -1,4 +1,5 @@
 import ast
+import boto3
 import jwt
 from hashlib import md5
 import os
@@ -12,18 +13,31 @@ import logging
 import pprint
 import networkx as nx
 import matplotlib.pyplot as plt
+import noaaOneLoginSAML as noaasaml
 
 from ssop import settings
+from django.contrib.auth import get_user_model
 from django.http import HttpResponse, HttpResponseRedirect, response
 from django.shortcuts import redirect, render
 from django.contrib.auth.models import User
 from cryptography.fernet import Fernet
 
 from sites.forms import ProjectForm
-from sites.models import Attributes, AttributeGroup, AuthToken, GraphNode, NodeType, Connection, Project, Uniqueuser 
+from sites.models import Attributes, AttributeGroup, AuthToken, GraphNode, NodeType, Connection, Project, Uniqueuser, hash_to_fingerprint, clean_authtokens, runcmdl
 
 logger = logging.getLogger('ssop.models')
 
+# begin SAML
+from onelogin.saml2.auth import OneLogin_Saml2_Auth, OneLogin_Saml2_Response
+from onelogin.saml2.settings import OneLogin_Saml2_Settings
+from onelogin.saml2.utils import OneLogin_Saml2_Utils, OneLogin_Saml2_Error, OneLogin_Saml2_ValidationError
+from onelogin.saml2.constants import OneLogin_Saml2_Constants
+from onelogin.saml2.utils import OneLogin_Saml2_Utils, OneLogin_Saml2_Error, OneLogin_Saml2_ValidationError, return_false_on_exception
+from onelogin.saml2.xml_utils import OneLogin_Saml2_XML
+from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import ensure_csrf_cookie
+
+usermodel = get_user_model()
 
 class Lmr():
     idx = int(0)
@@ -40,29 +54,6 @@ class Lmr():
 
     def get_idx(self):
         return self.idx
-
-
-def runcmdl(cmdl, execute):
-    """
-    prints cmdl or passes it to subprocess.run if execute is True
-    returns status, result as strings
-    """
-    cmd = " ".join(cmdl)
-    if 'true' in str(execute).lower():
-        try:
-            instance = subprocess.run(cmdl, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            status = instance.returncode
-            if status != int(0):
-                result = instance.stderr.decode()
-                raise OSError
-            result = instance.stdout.decode()
-        except OSError as e:
-            result = "exception: " + str(e) + ", result = " + str(result)
-    else:
-        status = int(-1)
-        result = "     cmd: " + str(cmd)
-    return status, result
-
 
 def x509oneline(x509):
     oneline = ''
@@ -82,7 +73,7 @@ def ldg(request, project_name = None):
         logger.info(msg)
 
     if project_name is None:
-        project_name = 'SSOP'
+        project_name = settings.DEFAULT_PROJECT_NAME
         msg = "   ldg project_name is now: " + str(project_name)
         logger.info(msg)
 
@@ -98,11 +89,11 @@ def ldg(request, project_name = None):
             attributes = []
             lmr = Lmr()
             for p in Project.objects.all():
-                src = '/ssop/static/projects/' + str(p) + '/logo'
-                link = 'https://gsl.noaa.gov/ssop/ldg/' + str(p)
+                logo = settings.PROJECTS_PREFIX + str(p) + settings.PROJECTS_POSTFIX 
+                link = settings.LDG_BASE + 'ldg/' + str(p) + settings.LDG_POSTFIX
                 linktext = p.get_verbose_name()
                 alt = 'Logo for project ' + str(p)
-                attributes.append((str(p), link, linktext, src, alt, lmr.next()))
+                attributes.append((str(p), link, linktext, logo, alt, lmr.next()))
             msg = "   attributes: " + str(attributes)
             logger.info(msg)
             return render(request, 'sites_grid.html', {'attributes': attributes, 'error_msg': error_msg})
@@ -130,17 +121,12 @@ def ldg(request, project_name = None):
 def uuFromFp(fingerprint, nameattrsgroup, connattrsgroup):
     qs = Uniqueuser.objects.filter(fingerprint=fingerprint)
     if qs.count() == int(0):
-        uu = Uniqueuser(fingerprint=fingerprint, nameattrsgroup=nameattrsgroup, connattrsgroup=connattrsgroup)
+        uu = Uniqueuser(fingerprint=fingerprint, nameattrsgroup=nameattrsgroup)
         uu.save()
-        msg = "   created uniqueuser " + str(uu) + " with fingerprint " + str(fingerprint)
-        msg = msg + " , nameattrsgroup " + str(nameattrsgroup) + " and connattrsgroup " + str(connattrsgroup)
-        logger.info(msg)
+        uu.connattrsgroups.add(connattrsgroup)
     else:
         uu = qs[0]
-        msg = "   found uniqueuser " + str(uu)
-        msg = "   fingerprint: " + str(uu.fingerprint)
-        msg = msg + " , nameattrsgroup " + str(uu.nameattrsgroup) + " and connattrsgroup " + str(uu.connattrsgroup)
-        logger.info(msg)
+        uu.connattrsgroups.add(connattrsgroup)
     return uu 
 
 def attributesFromDecodedFp(decodedfingerprint, encrypted_attrs):
@@ -153,68 +139,46 @@ def attributesFromDecodedFp(decodedfingerprint, encrypted_attrs):
     return attrs
 
 def attributeGroupFromAttributes(grouptype, attributelist):
-    msg = "   aGFA attributelist: " + str(attributelist) + " for grouptype " + str(grouptype)
-    logger.info(msg)
-
-    #qs = None
-    #for attr in attributelist:
-    #    alist = list(AttributeGroup.objects.filter(attrs=attr))
-    #    msg = "   alist: " + str(alist)
-    #    logger.info(msg)
-    #    qs = AttributeGroup.objects.filter(attrs__in=alist)
-
-    #if qs is None:
-    #    msg = "  no qs!...."
-    #    logger.info(msg)
-
-    qs = AttributeGroup.objects.filter(grouptype=grouptype, attrs__in=attributelist)
-    if qs.count() == int(0):
-        attrsgroup = AttributeGroup(grouptype=grouptype)
-        attrsgroup.save()
-        msg = "   created attrsgroup: " + str(attrsgroup)
-    else:
-        msg = "qs.count = " + str(qs.count())
-        logger.info(msg)
-        attrsgroup = qs[0]
-        msg = "   fetched first attrsgroup: " + str(attrsgroup)
-    logger.info(msg)
-
-    for a in attributelist:
-        #msg = "   append a: " + str(a)
-        #logger.info(msg)
-        attrsgroup.attrs.add(a)
-    return attrsgroup
-
-
-def test_attributeGroupFromAttributes(grouptype, attributelist):
-    msg = "   test aGFA attributelist: " + str(attributelist)
-    logger.info(msg)
-
-    qs = None
-    for attr in attributelist:
-        alist = list(Attributes.objects.filter(attrs=attr))
-        msg = "   alist for " + str(attr) + " is: " + str(alist)
-        logger.info(msg)
-
-    qs = AttributeGroup.objects.filter(grouptype=grouptype, attrs__in=attributelist)
-    if qs.count() == int(0):
+    agqs = AttributeGroup.objects.filter(grouptype=grouptype)
+    attrsgroup = None
+    if agqs.count() == int(0):
         attrsgroup = AttributeGroup(grouptype=grouptype)
         attrsgroup.save()
         attrsgroup.attrs.set(attributelist)
         attrsgroup.save()
-
-        msg = "   created attrsgroup: " + str(attrsgroup) + " with grouptype " + str(grouptype)
     else:
-        msg = "qs.count = " + str(qs.count())
-        logger.info(msg)
-        attrsgroup = qs[0]
-        msg = "   fetched first attrsgroup: " + str(attrsgroup)
-    logger.info(msg)
+        for ag in agqs:
+            #msg = "  ag: " + str(ag)
+            #logger.info(msg)
+            found = {}
+            for attr in ag.get_attrs():
+                #msg = "       attr.decodedfingerprint = " + str(attr.decodedfingerprint)
+                #logger.info(msg)
+                for a in attributelist:
+                    if str(a.decodedfingerprint) in str(attr.decodedfingerprint):
+                        found[str(a)] = True
+                        #msg = "          found[" + str(a.decodedfingerprint) + "] = True"
+                        #logger.info(msg)
+                        #msg = "          len(found) = " + str(len(found))
+                        #logger.info(msg)
+  
+            #msg = "  len(found) = " + str(len(found))
+            #logger.info(msg)
+            #msg = "  len(attributelist) = " + str(len(attributelist))
+            #logger.info(msg)
+            if len(found) == len(attributelist):
+                attrsgroup = ag
+                #msg = "   found attrsgroup: " + str(attrsgroup)
+                #logger.info(msg)
+                break
 
-    for a in attributelist:
-        #msg = "   append a: " + str(a)
-        #logger.info(msg)
-        attrsgroup.attrs.add(a)
+    if attrsgroup is None:
+        attrsgroup = AttributeGroup(grouptype=grouptype)
+        attrsgroup.save()
+        attrsgroup.attrs.set(attributelist)
+        attrsgroup.save()
+        msg = "   created attrsgroup: " + str(attrsgroup) + " with grouptype " + str(grouptype)
+        logger.info(msg)
     return attrsgroup
 
 def initialize_nodetypes():
@@ -225,7 +189,6 @@ def initialize_nodetypes():
             nt.save()
 
 def ldg_authenticated(request):
-
     attributes = []
     #requestattrs = None
     #userattrs = None
@@ -233,65 +196,60 @@ def ldg_authenticated(request):
     connattrslist = []
     uuattrslist = []
     initialize_nodetypes()
+
+    conngrouptype = NodeType.objects.filter(type='Conngroup').first()
+    namegrouptype = NodeType.objects.filter(type='Namegroup').first()
+
+    fernet = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
     try:
-        conngrouptype = NodeType.objects.filter(type='Conngroup').first()
-        namegrouptype = NodeType.objects.filter(type='Namegroup').first()
-
-        fernet = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
-
-        realip = str(request.headers['X-Real-Ip']).encode()
+        realip = str('xrip:' + request.headers['X-Real-Ip']).encode()
         realipfp = md5(realip).hexdigest()
         encrypted_realip = fernet.encrypt(realip)
         realipattrs = attributesFromDecodedFp(realipfp,  encrypted_realip)
+    except KeyError:
+        realipattrs = None
 
-        xff = str(request.headers['X-Forwarded-For']).encode()
+    try:
+        xff = str('xff:' + request.headers['X-Forwarded-For']).encode()
         xfffp = md5(xff).hexdigest()
         encrypted_xff = fernet.encrypt(xff)
         xffattrs = attributesFromDecodedFp(xfffp, encrypted_xff)
+    except KeyError:
+        xffattrs = None 
 
-        sechua = str(request.headers['Sec-CH-UA']).encode()
+    try:
+        sechua = str('sechua:' + request.headers['Sec-CH-UA']).encode()
         sechuafp = md5(sechua).hexdigest()
         encrypted_sechua = fernet.encrypt(sechua)
         sechuaattrs = attributesFromDecodedFp(sechuafp, encrypted_sechua)
+    except KeyError:
+        sechuaattrs = None 
 
-        ua = str(request.headers['User-Agent']).encode()
+    try:
+        ua = str('ua' + request.headers['User-Agent']).encode()
         uafp = md5(ua).hexdigest()
         encrypted_ua = fernet.encrypt(ua)
         uaattrs = attributesFromDecodedFp(uafp, encrypted_ua)
-
-        connattrslist.append(realipattrs)
-        if xffattrs != realipattrs:
-            connattrslist.append(xffattrs)
-        connattrslist.append(sechuaattrs)
-        connattrslist.append(uaattrs)
-        connattrsgroup = test_attributeGroupFromAttributes(conngrouptype, connattrslist)
-        # needed by uu so browser info can be tracked
-        #for a in attrslist:
-        #    uuattrslist.append(a)
-
-        rh = []
-        rh.append(('xri', str(realipattrs)))
-        if xffattrs != realipattrs:
-            rh.append(('xff', str(xffattrs)))
-        rh.append(('scu', str(sechuaattrs)))
-        rh.append(('ua', str(uaattrs)))
-
-        #msg = "   rh: " + str(rh)
-        #logger.info(msg)
-        rhstr = str(rh).encode()
-        #msg = "   rhstr: " + str(rhstr)
-        #logger.info(msg)
-        fingerprint = md5(rhstr).hexdigest()
-        #msg = "   fingerprint: " + fingerprint
-        #logger.info(msg)
-        rhstr = str(rh).encode()
-        encrypted_rh = fernet.encrypt(rhstr)
-        #msg = "   fingerprint: " + fingerprint
-        #logger.info(msg)
-        #requestattrs = attributesFromDecodedFp(fingerprint, encrypted_rh)
-
     except KeyError:
-        msg = "   NO request.headers found"
+        uaattrs = None 
+
+    try:
+        if realipattrs:
+            connattrslist.append(realipattrs)
+        if xffattrs:
+            if xffattrs != realipattrs:
+                connattrslist.append(xffattrs)
+        if sechuaattrs:
+            connattrslist.append(sechuaattrs)
+        if uaattrs:
+            connattrslist.append(uaattrs)
+    except KeyError:
+        pass
+
+    try: 
+        connattrsgroup = attributeGroupFromAttributes(conngrouptype, connattrslist)
+    except KeyError:
+        msg = "   no connattrsgroup" 
         logger.info(msg)
 
     if settings.VERBOSE:
@@ -327,7 +285,7 @@ def ldg_authenticated(request):
         attributes.append(('name', qs.name))
         return_to = qs.get_returnto()
         error_redirect = qs.get_err_redirect()
-        if not 'SSOP' in str(project):
+        if not settings.DEFAULT_PROJECT_NAME in str(project):
             ERROR_REDIRECT = error_redirect 
             RETURN_TO = return_to
         attributes.append(('return_to', return_to))
@@ -403,6 +361,8 @@ def ldg_authenticated(request):
             curlcmd = 'curl -v -x ' + settings.HTTP_PROXY + '  -H "' + cheaders + '" ' + infourl
             logger.info(curlcmd)
 
+        attributes.append(('AuthorizationBearer', str(accesstoken)))
+
         headers = {}
         headers["Authorization"] = "Bearer " + str(accesstoken)
         userattributes = requests.get(infourl, proxies=proxies, headers=headers)
@@ -442,15 +402,10 @@ def ldg_authenticated(request):
             thisattr = attributesFromDecodedFp(fingerprint,  encrypted_attrs)
             uuattrslist.append(thisattr)
 
-        nameattrsgroup = test_attributeGroupFromAttributes(namegrouptype, uuattrslist)
-        enuu = str(uu).encode()
-        #msg = "    enuu = " + str(enuu)
-        #logger.info(msg)
-        uufp = md5(enuu).hexdigest()
-        #msg = "    uufp = " + str(uufp)
-        #logger.info(msg)
+        nameattrsgroup = attributeGroupFromAttributes(namegrouptype, uuattrslist)
 
-        uniqueuser = uuFromFp(uufp, nameattrsgroup=nameattrsgroup, connattrsgroup=connattrsgroup)
+        uufp = hash_to_fingerprint(uu)
+        uniqueuser = uuFromFp(uufp, nameattrsgroup, connattrsgroup)
         authtoken = AuthToken()
         authtoken.save()
 
@@ -474,7 +429,7 @@ def ldg_authenticated(request):
                 logger.info(msg)
             return HttpResponseRedirect(return_to)
         else:
-            logouturl = 'https://gsl.noaa.gov/ssop/logout/' + str(connection_state)
+            logouturl = settings.LDG_BASE + 'logout/' + str(connection_state)
             msg = "    logouturl: " + str(logouturl)
             logger.info(msg)
             return render(request, 'attrs.html', {'paint_logout': True, 'attributes': attributes, 'logouturl': logouturl})
@@ -509,7 +464,7 @@ def logout(request, connection_state = None):
         logger.info(msg)
         return HttpResponseRedirect(logout)
     else:
-        return HttpResponseRedirect("ssop/oops")
+        return HttpResponseRedirect(settings.LDG_BASE + "oops")
 
 def oops(request):
     now = datetime.datetime.now()
@@ -521,26 +476,32 @@ def indextable(request):
     msg = "   index request: " + str(request)
     logger.info(msg)
 
+    # take the opportunity to clean any expired tokens
+    clean_authtokens()
+
     attributes = []
     lmr = Lmr()
     for p in Project.objects.all().order_by('display_order'):
         if p.is_enabled():
-            logo = '/ssop/static/projects/' + str(p) + '/logo'
-            link = 'https://gsl.noaa.gov/ssop/ldg/' + str(p)
+            logo = settings.PROJECTS_PREFIX + str(p) + settings.PROJECTS_POSTFIX 
+            link = settings.LDG_BASE + 'ldg/' + str(p) + settings.LDG_POSTFIX
             linktext = p.get_verbose_name()
             attributes.append((str(p), link, linktext, logo, lmr.next()))
     return render(request, 'sites.html', {'attributes': attributes})
 
-def index(request):
+def index_grid(request):
     msg = "   index request: " + str(request)
     logger.info(msg)
+
+    # take the opportunity to clean any expired tokens
+    #clean_authtokens()
 
     attributes = []
     lmr = Lmr()
     for p in Project.objects.all().order_by('display_order'):
         if p.is_enabled():
-            logo = '/ssop/static/projects/' + str(p) + '/logo'
-            link = 'https://gsl.noaa.gov/ssop/ldg/' + str(p)
+            logo = settings.PROJECTS_PREFIX + str(p) + settings.PROJECTS_POSTFIX 
+            link = settings.LDG_BASE + 'ldg/' + str(p) + settings.LDG_POSTFIX
             linktext = p.get_verbose_name()
             alt = 'Logo for project ' + str(p)
             attributes.append((str(p), link, linktext, logo, alt, lmr.next()))
@@ -587,7 +548,7 @@ def project_ldg(request, projectname):
             attributes.append(('authenticated_redirect', qs.get_auth_redirect()))
             attributes.append(('error_redirect', qs.get_err_redirect()))
             attributes.append(('state', qs.get_state()))
-            login = "https://gsl.noaa.gov/ssop/ldg/" + str(qs.name) + "/"
+            login = settings.LDG_BASE + 'ldg/' + str(qs.name) + "/"
             return HttpResponseRedirect(login)
 
         else:
@@ -608,11 +569,11 @@ def getattrs(request, access_token = None):
                 attributes = qs.get_attributes()
             else:
                 attributes = [('Attributes', 'tokenmismatch')]
-                attributes.append(('access_token', 'access_token'))
-                attributes.append(('token', 'token'))
+                attributes.append(('access_token', str(access_token)))
+                attributes.append(('token', str(token)))
         else:
-            attributes = [('Attributes', 'no access_token')]
-            attributes.append(('access_token', 'access_token'))
+            attributes = [('Attributes', 'access_token not found')]
+            attributes.append(('access_token', str(access_token)))
 
     return render(request, 'attrs.html', {'paint_logout': True, 'attributes': attributes, 'project_state': project_state})
 
@@ -644,26 +605,16 @@ def showattrs(request, access_token = None):
             decode_key_dar_key_attrs = settings.DATA_AT_REST_KEY_ATTRS
 
             user_attributes = connection.show_user_attributes()
-            try:
-                aledar = ast.literal_eval(user_attributes[0][1])
-                dataatrest = bytes_in_string(aledar)
-                attributes = []
-            except KeyError:
-                dataatrest = 'dataatrest'
-            dataatrest = str(dataatrest).encode()
-            msg = '   dataatrest: ' + str(dataatrest)
-            logger.info(msg)
-
-            #try:
-            #    attributes.append(('request.headers', str(request.headers)))
-            #except KeyError:
-            #    pass
+            #msg = "   user_attributes: " + str(user_attributes)
+            #logger.info(msg)
             attrs = {}
-            for k,v in user_attributes:
+            for (k,v) in user_attributes:
+                #msg = "   k, v: " + str(k) + ", " + str(v)
+                #logger.info(msg)
                 attrs[k] = v
 
             dit = Fernet(decode_key)
-            data_in_transit = dit.encrypt(dataatrest)
+            data_in_transit = dit.encrypt(str(attrs).encode())
             attributes.append(('dit', str(data_in_transit)))
 
             jwtdata = {}
@@ -674,7 +625,7 @@ def showattrs(request, access_token = None):
               
             jsonwebtoken = jwt.encode(jwtdata, settings.JWT_PRIVATE_KEY, algorithm="RS256")
             attributes.append(('json web token', jsonwebtoken))
-            attrsjwt = "https://gsl.noaa.gov/ssop/sites/attrsjwt/" + str(access_token) + "/"
+            attrsjwt = settings.LDG_BASE + "sites/attrsjwt/" + str(access_token) + "/"
             attributes.append(('attrsjwt', attrsjwt))
 
         else:
@@ -704,7 +655,7 @@ def attrsjwt(request, access_token = None):
             connection = cqs[0]
 
             # disabled for debugging -- remember it is a one time token
-            #token = connection.token.get_token()
+            fetchedtoken = None
             if connection.project.expiretokens:           
                 fetchedtoken = connection.token.get_token()
                 if str(fetchedtoken) not in str(authtoken):
@@ -716,45 +667,168 @@ def attrsjwt(request, access_token = None):
             #msg = "    connection get_user_attributes(): " + str(user_attributes)
             #logger.info(msg)
 
-            # attributes is a single element list containing tuple: ('user_attributes', {'simplestring': b'a-string-of-bytes'})
-            dar = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
-            aledar = ast.literal_eval(user_attributes[0][1])
-            dataatrest = bytes_in_string(aledar['simplestring'])
-            msg = '   dataatrest: ' + str(dataatrest)
-            logger.info(msg)
+            if fetchedtoken:
+                connection.clear_user_attributes()
 
-            decrypteddata = dar.decrypt(dataatrest).decode()
-            msg = "   decrypteddata: " + str(decrypteddata)
-            logger.info(msg)
+            dar = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
+            alldecrypted = '\n' 
+            for ua in user_attributes:
+                #msg = "    ua = " + str(ua)
+                #logger.info(msg)
+                aledar = ast.literal_eval(ua)
+                dataatrest = bytes_in_string(aledar)
+                #msg = '   dataatrest: ' + str(dataatrest)
+                #logger.info(msg)
+
+                decrypteddata = dar.decrypt(dataatrest).decode()
+                #msg = "   decrypteddata: " + str(decrypteddata)
+                #logger.info(msg)
+                alldecrypted = decrypteddata + ',' + alldecrypted
+            if len(alldecrypted) > int(1):
+                alldecrypted = alldecrypted[:-2]
+            #msg = "   alldecrypted: " + str(alldecrypted)
+            #logger.info(msg)
 
             dit = Fernet(encode_key)
-            data_in_transit = dit.encrypt(decrypteddata.encode())
-            #attributes.append(('dit', str(data_in_transit)))
+            data_in_transit = dit.encrypt(alldecrypted.encode())
             #msg = "   data_in_transit: " + str(data_in_transit)
             #logger.info(msg)
 
             attrs = {}
             attrs['dit'] = str(data_in_transit)
-            #for k,v in attributes:
-            #    if 'dit' in str(k):
-            #        attrs[k] = v 
-            #        continue
+            #msg = "   attrs = " + str(attrs)
+            #logger.info(msg)
             signedattributes = jwt.encode(attrs, settings.JWT_PRIVATE_KEY, algorithm="RS256")
             #msg = "   leaving attrsjwt -- access_token = " + str(access_token)
             #logger.info(msg)
             #msg = "   attrsjwt -- signedattributes = " + str(signedattributes)
             #logger.info(msg)
-        else:
-            msg = "  qscount is zero for access_token " + str(access_token)
-            logger.info(msg)
+#        else:
+#            msg = "  cqs.count() is zero for access_token " + str(access_token)
+#            logger.info(msg)
 
     return render(request, 'signedattrs.html', {'attributes': signedattributes})
+
+
+# This is the Django view which produced the Data and Links above, plus this Source your currently are reading, using the Template below. 
+# Seems recusive in some way.
+
+def demopython(request, access_token = None):
+    """
+    user has been authenticated by login.gov, so we can retrive their attributes via a JWT 
+    """
+
+    # return structure supporting a django template named demoapp.html
+    data = {}
+    data['request'] = str(request)
+    if access_token is None:
+        if '?access_token=' in str(request):
+            (junk, access_token) = str(request).split('?access_token=')
+            access_token = access_token.replace("\'>", "")
+    data['access_token'] = str(access_token)
+
+    try:
+        msg = "   request.headers = " + str(request.headers)
+    except KeyError:
+        msg = "   NO request.headers found -- this should not have happened!!!"
+    data['request.headers'] = msg
+
+    # useful debugging urls
+    # the trailing '/' is MANDATORY
+    extattrsurl = "https://gsl.noaa.gov/ssopsb/sites/attrsjwt/" + str(access_token) + "/"
+    intattrsurl = "https://gsl-webstage8.gsd.esrl.noaa.gov/ssopsb/sites/attrsjwt/" + str(access_token) + "/"
+    data['extattrsurl'] = str(extattrsurl)
+    data['intattrsurl'] = str(intattrsurl)
+
+    # curl headers need str vs {} for requests.get
+    cheaders = "Authorization: Bearer " + str(access_token)
+    extcurl = 'curl -v -x ' + settings.HTTP_PROXY + '  -H "' + cheaders + '" ' + extattrsurl
+    intcurl = 'curl -v -x ' + settings.HTTP_PROXY + '  -H "' + cheaders + '" ' + intattrsurl
+    data['extcurl'] = str(extcurl)
+    data['intcurl'] = str(intcurl)
+
+    links = []
+    links.append(intattrsurl)
+    links.append(extattrsurl)
+    links.append(intcurl)
+    links.append(extcurl)
+
+    headers = {}
+    headers["Authorization"] = "Bearer " + str(access_token)
+    proxies = {}
+    proxies["http"] = str(settings.HTTP_PROXY)
+    proxies["https"] = str(settings.HTTP_PROXY)
+
+    jwtresponse = requests.get(extattrsurl, proxies=proxies, headers=headers)
+    data['jwt'] = jwtresponse.text
+
+    payload = jwtresponse.text
+    payload = payload.replace('\n', '', 10)
+    payload = payload.replace('JWT ', '' )
+    payload = payload.replace(' ', '' )
+    data['payload'] = payload
+
+    # NOTE: sandbox versus production url
+    response = requests.get('https://gsl.noaa.gov/ssopsb/pubcert/', proxies=proxies)
+    JWT_PUBCERT = response.text
+    JWT_PUBCERT = JWT_PUBCERT.replace('<html><body><pre>', '') 
+    JWT_PUBCERT = JWT_PUBCERT.replace('</pre></body></html>', '') 
+    JWT_PUBCERT_lines = str(JWT_PUBCERT).split()
+    data['JWTPUBCERT'] = str(JWT_PUBCERT_lines[0:3]) + '\n... clipped ...\n' + str(JWT_PUBCERT_lines[-3:])
+
+    try:
+        decoded = jwt.decode(payload, options={"verify_signature": False}) 
+    except jwt.DecodeError:
+        decoded = None 
+    data['decoded'] = str(decoded)
+
+    given_name = None 
+    family_name = None
+    if decoded:
+        # dit -- data in transit is a payload within the json web token (jwt.io)
+        decode_key = settings.JWT_DECODE_KEY
+        dar = Fernet(decode_key)
+    
+        # This will be all of user attributes in clear text
+        try:
+            decrypteddata = dar.decrypt(bytes_in_string(decoded['dit'])).decode()
+            data['cleardata'] = decrypteddata
+        except InvalidToken:
+            data['fernet.InvalidToken'] = 'InvalidToken'
+
+        ale = ast.literal_eval(decrypteddata)
+        for tpl in ale:
+            if not given_name:
+                try:
+                    given_name = str(tpl['given_name'])
+                except KeyError:
+                    pass
+            if not family_name:
+                try:
+                    family_name = str(tpl['family_name'])
+                except KeyError:
+                    pass
+    
+        full_name = str(given_name) + '_' + str(family_name)
+        url = "https://gsl.noaa.gov/fire-wx/fire-weather-testbed"
+        if access_token:
+            url = url + '?access_token=' + str(access_token) + ':' + full_name
+            data['url'] = url 
+
+        # uncomment when ready......
+        #return HttpResponseRedirect(url)
+
+    # for demo
+    pp = pprint.PrettyPrinter()
+    ppdata = pp.pformat(data)
+        
+    return render(request, 'demoapp.html', {'data': ppdata})
 
 
 def demoapp_python(request):
 
     src = 'unable to read sites/demoapp_python.txt'
-    with open(os.path.join(settings.BASE_DIR, 'sites/demoapp_python.txt')) as srcfile:
+    with open(os.path.join(settings.BASE_DIR, 'sites/demopython.txt')) as srcfile:
         src = srcfile.read()
 
     template = 'unable to read templates/demoapp.html'
@@ -786,9 +860,9 @@ def demoapp_python(request):
     data['request.session'] = msg 
 
     # the trailing '/' is MANDATORY
-    extattrsurl = "https://gsl.noaa.gov/ssop/sites/attrsjwt/" + str(access_token) + "/"
+    extattrsurl = settings.LDG_BASE + "sites/attrsjwt/" + str(access_token) + "/"
     #msg = "   external attrsurl: " + str(extattrsurl)
-    intattrsurl = "https://gsl-webstage8.gsd.esrl.noaa.gov/ssop/sites/attrsjwt/" + str(access_token) + "/"
+    intattrsurl = settings.LDG_BASE + "sites/attrsjwt/" + str(access_token) + "/"
     #msg = "   internal attrsurl: " + str(intattrsurl)
     #logger.info(msg)
 
@@ -814,6 +888,8 @@ def demoapp_python(request):
     links.append(extcurl)
     links.append(intattrsurl)
     links.append(intcurl)
+    links.append('source:  https://gsl.noaa.gov/ssopsb/examples/demopython.txt')
+
     headers = {}
     headers["Authorization"] = "Bearer " + str(access_token)
     proxies = {}
@@ -830,15 +906,7 @@ def demoapp_python(request):
     #msg = "   data in transit: " + dit.text
     #logger.info(msg)
 
-    data['dit'] = 'demo text!! ---  dit.text -- for now until I figure out what is blocking this....!'
-
-    # not finishing due to DMZ issue -- but this should be a good start
-    # dit -- data in transit is a payload within the json web token (jwt.io)
-    #decode_key = connection.project.get_decode_key()
-    #dar = Fernet(decode_key)
-    #dit = bytes_in_string(attributes[0][1])
-    #decrypteddata = dar.decrypt(dit).decode()
-    #data['cleardata'] = decrypteddata 
+    data['dit'] = 'demo text!! ---  Data in transit -- For mydjangoapp, you must implement ldg_authenticated(request)'
 
     pp = pprint.PrettyPrinter()
     ppdata = pp.pformat(data)
@@ -851,7 +919,7 @@ def demoapp_python(request):
     qs = Connection.objects.filter(token=token)
     if qs.count() == int(1):
         connection_state = qs[0].project.get_connection_state()
-        logouturl = 'https://gsl.noaa.gov/ssop/logout/' + str(connection_state)
+        logouturl = settings.LDG_BASE + 'logout/' + str(connection_state)
 
     response = render(request, 'demoapp.html', {'data': ppdata, 'links': links, 'src':src, 'template':template, 'logouturl': logouturl})
     headers = {}
@@ -887,8 +955,8 @@ def demoapp_authorization(request, access_token = None):
     #data['randr'] = randr 
 
     # the trailing '/' is MANDATORY
-    landing_url = "/ssop/sites/demoapp_python/"
-    requesturl = "https://gsl-webstage8.gsd.esrl.noaa.gov" + landing_url
+    landing_url = settings.LDG_BASE + "sites/demoapp_python/"
+    requesturl = settings.LDG_BASE + landing_url
     msg = "   requesturl: " + str(requesturl)
     logger.info(msg)
 
@@ -1370,6 +1438,14 @@ def make_connections_by_project_img():
             type = seen[k]['type']
             suu = get_suu(seen, k)
 
+            if 'P2AC' in type:
+                try:
+                    a['weight'] = int(conn_by_uu[suu]['projects'][pname])
+                except KeyError:
+                    pass
+                if str((b, e, a)) not in str(edges_by_pac):
+                    edges_by_pac[pname].append((b, e, a))
+
             if pname in seen[k]['pname']:
                 if 'P2UU' in type:
                     a['weight'] = int(conn_by_uu[suu]['weight'])
@@ -1389,7 +1465,7 @@ def make_connections_by_project_img():
     
                 if 'P2AC' in type:
                     try:
-                        a['weight'] = int(conn_by_uu[suu]['projects'][pname])
+                        a['weight'] = a['weight'] + int(conn_by_uu[suu]['projects'][pname])
                     except KeyError:
                         pass
                     if str((b, e, a)) not in str(edges_by_pac):
@@ -1418,6 +1494,14 @@ def make_connections_by_project_img():
         type = seen[k]['type']
         pname = seen[k]['pname']
         suu = get_suu(seen, k)
+
+        if 'P2AC' in type:
+            try:
+                a['weight'] = int(conn_by_uu[suu]['projects'][pname])
+            except KeyError:
+                pass
+            if str((b, e, a)) not in str(edges_by_pac[pname]):
+                edges_by_pac[pname].append((b, e, a))
 
         if pname in seen[k]['pname']:
             if 'P2UU' in type:
@@ -1450,7 +1534,7 @@ def make_connections_by_project_img():
     
             if 'P2AC' in type:
                 try:
-                    a['weight'] = int(conn_by_uu[suu]['projects'][pname])
+                    a['weight'] = a['weight'] + int(conn_by_uu[suu]['projects'][pname])
                 except KeyError:
                     pass
                 if str((b, e, a)) not in str(edges_by_pac[pname]):
@@ -1715,8 +1799,8 @@ def make_connections_by_project_img():
     lmr = Lmr()
     for p in Project.objects.all().order_by('display_order'):
         if p.is_enabled():
-            logo = '/ssop/static/projects/' + str(p) + '/logo'
-            link = 'https://gsl.noaa.gov/ssop/ldg/' + str(p)
+            logo = settings.PROJECTS_PREFIX + str(p) + settings.PROJECTS_POSTFIX 
+            link = settings.LDG_BASE + 'ldg/' + str(p) + settings.LDG_POSTFIX
             linktext = p.get_verbose_name()
             imageattributes.append((str(p), link, linktext, logo, lmr.next()))
     debugprint['imageattributes'] = imageattributes
@@ -1730,821 +1814,739 @@ def connections_by_project(request):
     data['debugprint'] = pp.pformat(debugprint)
     return render(request, 'conn_by_proj.html', data)
 
-# commented out until end of file
-##klh
-##klh#from lib2to3.pgen2 import token
-##klh#from django.http import HttpResponse
-##klh#from django.views import generic
-##klh#from django.shortcuts import render
-##klh#from django.http import HttpResponseNotAllowed, HttpResponse, HttpResponseRedirect, HttpResponseServerError
-##klh#from django.contrib.auth.models import User
-##klh#from django.contrib.auth import authenticate, login, get_user_model
-##klh#from django.contrib.admin import AdminSite
-##klhfrom django.views.decorators.cache import never_cache
-##klhfrom django.urls import reverse
-##klhfrom django.utils.translation import gettext as _
-##klh
-##klhfrom django.views.decorators.csrf import ensure_csrf_cookie
-##klhfrom django.contrib.auth import REDIRECT_FIELD_NAME
-##klh#from ssop import settings
-##klh#
-##klh#import ast
-##klh#import jwt
-##klh#import requests
-##klh#import random
-##klh#import secrets
-##klh#import json
-##klh#import datetime
-##klh#import re
-##klh#import logging
-##klh#import os
-##klh
-##klhSESSION_KEY = '_auth_user_id'
-##klh
-##klh
-##klh@never_cache
-##klhdef samlauth(request):
-##klh    """
-##klh    Display the login form for the given HttpRequest.
-##klh    """
-##klh    #msg = "in samlauth  -- request: " + str(request)
-##klh    #logger.info(msg)
-##klh
-##klh    rmsg = '        in samlauth found ' + str(len(request.session.keys())) + ' session keys:\n'
-##klh    #for k in request.session.keys():
-##klh    #    msg = str(k)
-##klh    #    #  + ": " + str(request.session[k])
-##klh    #    rmsg = rmsg + msg + '\n'
-##klh    logger.info(rmsg)
-##klh    
-##klh    # Already logged-in, redirect to admin index
-##klh    index_path = "https://qrba-dev.gsd.esrl.noaa.gov/admin"
-##klh    return HttpResponseRedirect(index_path)
-##klh
-##klh    # return HttpResponse("Hello, world. You're at qrba3 samlauth. " + str(rmsg))
-##klh
-##klhfrom onelogin.saml2.auth import OneLogin_Saml2_Auth, OneLogin_Saml2_Response
-##klhfrom onelogin.saml2.settings import OneLogin_Saml2_Settings
-##klhfrom onelogin.saml2.utils import OneLogin_Saml2_Utils, OneLogin_Saml2_Error, OneLogin_Saml2_ValidationError
-##klhfrom onelogin.saml2.constants import OneLogin_Saml2_Constants
-##klhfrom onelogin.saml2.utils import OneLogin_Saml2_Utils, OneLogin_Saml2_Error, OneLogin_Saml2_ValidationError, return_false_on_exception
-##klhfrom onelogin.saml2.xml_utils import OneLogin_Saml2_XML
-##klh
-##klh
-##klhclass noaaOneLogin_Saml2_Response(OneLogin_Saml2_Response):
-##klh    def is_valid(self, request_data, request_id=None, raise_exceptions=False):
-##klh        """
-##klh        Validates the response object.
-##klh
-##klh        :param request_data: Request Data
-##klh        :type request_data: dict
-##klh
-##klh        :param request_id: Optional argument. The ID of the AuthNRequest sent by this SP to the IdP
-##klh        :type request_id: string
-##klh
-##klh        :param raise_exceptions: Whether to return false on failure or raise an exception
-##klh        :type raise_exceptions: Boolean
-##klh
-##klh        :returns: True if the SAML Response is valid, False if not
-##klh        :rtype: bool
-##klh        """
-##klh        self._error = None
-##klh        try:
-##klh            # Checks SAML version
-##klh            if self.document.get('Version', None) != '2.0':
-##klh                raise OneLogin_Saml2_ValidationError(
-##klh                    'Unsupported SAML version',
-##klh                    OneLogin_Saml2_ValidationError.UNSUPPORTED_SAML_VERSION
-##klh                )
-##klh
-##klh            # Checks that ID exists
-##klh            if self.document.get('ID', None) is None:
-##klh                raise OneLogin_Saml2_ValidationError(
-##klh                    'Missing ID attribute on SAML Response',
-##klh                    OneLogin_Saml2_ValidationError.MISSING_ID
-##klh                )
-##klh
-##klh            # Checks that the response has the SUCCESS status
-##klh            self.check_status()
-##klh
-##klh            # Checks that the response only has one assertion
-##klh            if not self.validate_num_assertions():
-##klh                raise OneLogin_Saml2_ValidationError(
-##klh                    'SAML Response must contain 1 assertion',
-##klh                    OneLogin_Saml2_ValidationError.WRONG_NUMBER_OF_ASSERTIONS
-##klh                )
-##klh
-##klh            idp_data = self._settings.get_idp_data()
-##klh            idp_entity_id = idp_data['entityId']
-##klh            sp_data = self._settings.get_sp_data()
-##klh            sp_entity_id = sp_data['entityId']
-##klh
-##klh            signed_elements = self.process_signed_elements()
-##klh
-##klh            has_signed_response = '{%s}Response' % OneLogin_Saml2_Constants.NS_SAMLP in signed_elements
-##klh            has_signed_assertion = '{%s}Assertion' % OneLogin_Saml2_Constants.NS_SAML in signed_elements
-##klh
-##klh            #msg = "reponse.py -- is_valid: has_signed_response = " + str(has_signed_response)
-##klh            #logger.info(msg)
-##klh            #msg = "reponse.py -- is_valid: has_signed_assertion = " + str(has_signed_assertion)
-##klh            #logger.info(msg)
-##klh             
-##klh            if self._settings.is_strict():
-##klh                no_valid_xml_msg = 'Invalid SAML Response. Not match the saml-schema-protocol-2.0.xsd'
-##klh                res = OneLogin_Saml2_XML.validate_xml(self.document, 'saml-schema-protocol-2.0.xsd', self._settings.is_debug_active())
-##klh                if isinstance(res, str):
-##klh                    raise OneLogin_Saml2_ValidationError(
-##klh                        no_valid_xml_msg,
-##klh                        OneLogin_Saml2_ValidationError.INVALID_XML_FORMAT
-##klh                    )
-##klh
-##klh                # If encrypted, check also the decrypted document
-##klh                if self.encrypted:
-##klh                    res = OneLogin_Saml2_XML.validate_xml(self.decrypted_document, 'saml-schema-protocol-2.0.xsd', self._settings.is_debug_active())
-##klh                    if isinstance(res, str):
-##klh                        raise OneLogin_Saml2_ValidationError(
-##klh                            no_valid_xml_msg,
-##klh                            OneLogin_Saml2_ValidationError.INVALID_XML_FORMAT
-##klh                        )
-##klh
-##klh                security = self._settings.get_security_data()
-##klh                current_url = OneLogin_Saml2_Utils.get_self_url_no_query(request_data)
-##klh
-##klh                # Check if the InResponseTo of the Response matchs the ID of the AuthNRequest (requestId) if provided
-##klh                in_response_to = self.get_in_response_to()
-##klh                if in_response_to is not None and request_id is not None:
-##klh                    if in_response_to != request_id:
-##klh                        raise OneLogin_Saml2_ValidationError(
-##klh                            'The InResponseTo of the Response: %s, does not match the ID of the AuthNRequest sent by the SP: %s' % (in_response_to, request_id),
-##klh                            OneLogin_Saml2_ValidationError.WRONG_INRESPONSETO
-##klh                        )
-##klh
-##klh                if not self.encrypted and security['wantAssertionsEncrypted']:
-##klh                    raise OneLogin_Saml2_ValidationError(
-##klh                        'The assertion of the Response is not encrypted and the SP require it',
-##klh                        OneLogin_Saml2_ValidationError.NO_ENCRYPTED_ASSERTION
-##klh                    )
-##klh
-##klh                if security['wantNameIdEncrypted']:
-##klh                    encrypted_nameid_nodes = self._query_assertion('/saml:Subject/saml:EncryptedID/xenc:EncryptedData')
-##klh                    if len(encrypted_nameid_nodes) != 1:
-##klh                        raise OneLogin_Saml2_ValidationError(
-##klh                            'The NameID of the Response is not encrypted and the SP require it',
-##klh                            OneLogin_Saml2_ValidationError.NO_ENCRYPTED_NAMEID
-##klh                        )
-##klh
-##klh                # Checks that a Conditions element exists
-##klh                if not self.check_one_condition():
-##klh                    raise OneLogin_Saml2_ValidationError(
-##klh                        'The Assertion must include a Conditions element',
-##klh                        OneLogin_Saml2_ValidationError.MISSING_CONDITIONS
-##klh                    )
-##klh
-##klh                # Validates Assertion timestamps
-##klh                self.validate_timestamps(raise_exceptions=True)
-##klh
-##klh                # Checks that an AuthnStatement element exists and is unique
-##klh                if not self.check_one_authnstatement():
-##klh                    raise OneLogin_Saml2_ValidationError(
-##klh                        'The Assertion must include an AuthnStatement element',
-##klh                        OneLogin_Saml2_ValidationError.WRONG_NUMBER_OF_AUTHSTATEMENTS
-##klh                    )
-##klh
-##klh                # Checks that the response has all of the AuthnContexts that we provided in the request.
-##klh                # Only check if failOnAuthnContextMismatch is true and requestedAuthnContext is set to a list.
-##klh                requested_authn_contexts = security['requestedAuthnContext']
-##klh                if security['failOnAuthnContextMismatch'] and requested_authn_contexts and requested_authn_contexts is not True:
-##klh                    authn_contexts = self.get_authn_contexts()
-##klh                    unmatched_contexts = set(authn_contexts).difference(requested_authn_contexts)
-##klh                    if unmatched_contexts:
-##klh                        raise OneLogin_Saml2_ValidationError(
-##klh                            'The AuthnContext "%s" was not a requested context "%s"' % (', '.join(unmatched_contexts), ', '.join(requested_authn_contexts)),
-##klh                            OneLogin_Saml2_ValidationError.AUTHN_CONTEXT_MISMATCH
-##klh                        )
-##klh
-##klh                # Checks that there is at least one AttributeStatement if required
-##klh                attribute_statement_nodes = self._query_assertion('/saml:AttributeStatement')
-##klh                if security.get('wantAttributeStatement', True) and not attribute_statement_nodes:
-##klh                    raise OneLogin_Saml2_ValidationError(
-##klh                        'There is no AttributeStatement on the Response',
-##klh                        OneLogin_Saml2_ValidationError.NO_ATTRIBUTESTATEMENT
-##klh                    )
-##klh
-##klh                encrypted_attributes_nodes = self._query_assertion('/saml:AttributeStatement/saml:EncryptedAttribute')
-##klh                if encrypted_attributes_nodes:
-##klh                    raise OneLogin_Saml2_ValidationError(
-##klh                        'There is an EncryptedAttribute in the Response and this SP not support them',
-##klh                        OneLogin_Saml2_ValidationError.ENCRYPTED_ATTRIBUTES
-##klh                    )
-##klh
-##klh                # Checks destination
-##klh                destination = self.document.get('Destination', None)
-##klh                if destination:
-##klh                    if not OneLogin_Saml2_Utils.normalize_url(url=destination).startswith(OneLogin_Saml2_Utils.normalize_url(url=current_url)):
-##klh                        # TODO: Review if following lines are required, since we can control the
-##klh                        # request_data
-##klh                        #  current_url_routed = OneLogin_Saml2_Utils.get_self_routed_url_no_query(request_data)
-##klh                        #  if not destination.startswith(current_url_routed):
-##klh                        raise OneLogin_Saml2_ValidationError(
-##klh                            'The response was received at %s instead of %s' % (current_url, destination),
-##klh                            OneLogin_Saml2_ValidationError.WRONG_DESTINATION
-##klh                        )
-##klh                elif destination == '':
-##klh                    raise OneLogin_Saml2_ValidationError(
-##klh                        'The response has an empty Destination value',
-##klh                        OneLogin_Saml2_ValidationError.EMPTY_DESTINATION
-##klh                    )
-##klh                # Checks audience
-##klh                valid_audiences = self.get_audiences()
-##klh                if valid_audiences and sp_entity_id not in valid_audiences:
-##klh                    raise OneLogin_Saml2_ValidationError(
-##klh                        '%s is not a valid audience for this Response' % sp_entity_id,
-##klh                        OneLogin_Saml2_ValidationError.WRONG_AUDIENCE
-##klh                    )
-##klh
-##klh                # Checks the issuers
-##klh                issuers = self.get_issuers()
-##klh                for issuer in issuers:
-##klh                    if issuer is None or issuer != idp_entity_id:
-##klh                        raise OneLogin_Saml2_ValidationError(
-##klh                            'Invalid issuer in the Assertion/Response (expected %(idpEntityId)s, got %(issuer)s)' %
-##klh                            {
-##klh                                'idpEntityId': idp_entity_id,
-##klh                                'issuer': issuer
-##klh                            },
-##klh                            OneLogin_Saml2_ValidationError.WRONG_ISSUER
-##klh                        )
-##klh
-##klh                # Checks the session Expiration
-##klh                session_expiration = self.get_session_not_on_or_after()
-##klh                if session_expiration and session_expiration <= OneLogin_Saml2_Utils.now():
-##klh                    raise OneLogin_Saml2_ValidationError(
-##klh                        'The attributes have expired, based on the SessionNotOnOrAfter of the AttributeStatement of this Response',
-##klh                        OneLogin_Saml2_ValidationError.SESSION_EXPIRED
-##klh                    )
-##klh
-##klh                # Checks the SubjectConfirmation, at least one SubjectConfirmation must be valid
-##klh                any_subject_confirmation = False
-##klh                subject_confirmation_nodes = self._query_assertion('/saml:Subject/saml:SubjectConfirmation')
-##klh
-##klh                for scn in subject_confirmation_nodes:
-##klh                    method = scn.get('Method', None)
-##klh                    if method and method != OneLogin_Saml2_Constants.CM_BEARER:
-##klh                        continue
-##klh                    sc_data = scn.find('saml:SubjectConfirmationData', namespaces=OneLogin_Saml2_Constants.NSMAP)
-##klh                    if sc_data is None:
-##klh                        continue
-##klh                    else:
-##klh                        irt = sc_data.get('InResponseTo', None)
-##klh                        if in_response_to and irt and irt != in_response_to:
-##klh                            continue
-##klh                        recipient = sc_data.get('Recipient', None)
-##klh                        if recipient and current_url not in recipient:
-##klh                            continue
-##klh                        nooa = sc_data.get('NotOnOrAfter', None)
-##klh                        if nooa:
-##klh                            parsed_nooa = OneLogin_Saml2_Utils.parse_SAML_to_time(nooa)
-##klh                            if parsed_nooa <= OneLogin_Saml2_Utils.now():
-##klh                                continue
-##klh                        nb = sc_data.get('NotBefore', None)
-##klh                        if nb:
-##klh                            parsed_nb = OneLogin_Saml2_Utils.parse_SAML_to_time(nb)
-##klh                            if parsed_nb > OneLogin_Saml2_Utils.now():
-##klh                                continue
-##klh
-##klh                        if nooa:
-##klh                            self.valid_scd_not_on_or_after = OneLogin_Saml2_Utils.parse_SAML_to_time(nooa)
-##klh
-##klh                        any_subject_confirmation = True
-##klh                        break
-##klh
-##klh                if not any_subject_confirmation:
-##klh                    raise OneLogin_Saml2_ValidationError(
-##klh                        'A valid SubjectConfirmation was not found on this Response',
-##klh                        OneLogin_Saml2_ValidationError.WRONG_SUBJECTCONFIRMATION
-##klh                    )
-##klh
-##klh                if security['wantAssertionsSigned'] and not has_signed_assertion:
-##klh                    raise OneLogin_Saml2_ValidationError(
-##klh                        'The Assertion of the Response is not signed and the SP require it',
-##klh                        OneLogin_Saml2_ValidationError.NO_SIGNED_ASSERTION
-##klh                    )
-##klh
-##klh                if security['wantMessagesSigned'] and not has_signed_response:
-##klh                    raise OneLogin_Saml2_ValidationError(
-##klh                        'The Message of the Response is not signed and the SP require it',
-##klh                        OneLogin_Saml2_ValidationError.NO_SIGNED_MESSAGE
-##klh                    )
-##klh
-##klh            if not signed_elements or (not has_signed_response and not has_signed_assertion):
-##klh                raise OneLogin_Saml2_ValidationError(
-##klh                    'No Signature found. SAML Response rejected',
-##klh                    OneLogin_Saml2_ValidationError.NO_SIGNATURE_FOUND
-##klh                )
-##klh            else:
-##klh                cert = self._settings.get_idp_cert()
-##klh                fingerprint = idp_data.get('certFingerprint', None)
-##klh                if fingerprint:
-##klh                    fingerprint = OneLogin_Saml2_Utils.format_finger_print(fingerprint)
-##klh                fingerprintalg = idp_data.get('certFingerprintAlgorithm', None)
-##klh
-##klh                multicerts = None
-##klh                if 'x509certMulti' in idp_data and 'signing' in idp_data['x509certMulti'] and idp_data['x509certMulti']['signing']:
-##klh                    multicerts = idp_data['x509certMulti']['signing']
-##klh
-##klh                # If find a Signature on the Response, validates it checking the original response
-##klh                if has_signed_response and not OneLogin_Saml2_Utils.validate_sign(self.document, cert, fingerprint, fingerprintalg, xpath=OneLogin_Saml2_Utils.RESPONSE_SIGNATURE_XPATH, multicerts=multicerts, raise_exceptions=False):
-##klh                    #msg = "    has_signed_reponse document: " + str(self.document)
-##klh                    #logger.info(msg)
-##klh                    raise OneLogin_Saml2_ValidationError(
-##klh                        'Signature validation failed. SAML Response rejected',
-##klh                        OneLogin_Saml2_ValidationError.INVALID_SIGNATURE
-##klh                    )
-##klh
-##klh                document_check_assertion = self.decrypted_document if self.encrypted else self.document
-##klh                if has_signed_assertion and not OneLogin_Saml2_Utils.validate_sign(document_check_assertion, cert, fingerprint, fingerprintalg, xpath=OneLogin_Saml2_Utils.ASSERTION_SIGNATURE_XPATH, multicerts=multicerts, raise_exceptions=False):
-##klh                    # some NOAA systems cannot handle 256 bit encryption!  --- per conversation with icam team
-##klh                    # HOWEVER, 256 must be used to intiate the response....
-##klh                    msg = "    has_signed_assertion is " + str(has_signed_assertion) + ", NOT raising error OneLogin_Saml2_ValidationError -- xml document:" + str(self.get_xml_document())
-##klh                    msg = msg + "    accepting assertion signed with sha-128 -- per ICAM team this is needed to support some legacy NOAA systems"
-##klh
-##klh                                         
-##klh                    #raise OneLogin_Saml2_ValidationError(
-##klh                    #    'Signature validation failed. SAML Response rejected',
-##klh                    #    OneLogin_Saml2_ValidationError.INVALID_SIGNATURE
-##klh                    #)
-##klh
-##klh            return True
-##klh        except Exception as err:
-##klh            self._error = str(err)
-##klh            debug = self._settings.is_debug_active()
-##klh            if debug:
-##klh                print(err)
-##klh            if raise_exceptions:
-##klh                raise
-##klh            return False
-##klh
-##klh
-##klhclass noaaOneLogin_Saml2_Auth(OneLogin_Saml2_Auth):
-##klh    response_class = noaaOneLogin_Saml2_Response
-##klh
-##klh
-##klh# views from python-saml-master/demo-django/demo
-##klhdef prepare_django_request(request):
-##klh    # If server is behind proxys or balancers use the HTTP_X_FORWARDED fields
-##klh    result = {
-##klh        'https': 'on' if request.is_secure() else 'off',
-##klh        'http_host': request.META['HTTP_HOST'],
-##klh        'script_name': request.META['PATH_INFO'],
-##klh        'server_port': request.META['SERVER_PORT'],
-##klh        'get_data': request.GET.copy(),
-##klh        'post_data': request.POST.copy(),
-##klh        # Uncomment if using ADFS as IdP, https://github.com/onelogin/python-saml/pull/144
-##klh        # 'lowercase_urlencoding': True,
-##klh        'query_string': request.META['QUERY_STRING']
-##klh    }
-##klh    #msg = '  prepare_django_request result len = ' + str(len(result))
-##klh    #logger.debug(msg)
-##klh    return result
-##klh
-##klh
-##klh@ensure_csrf_cookie
-##klhdef index_icam(request):
-##klh    msg = 'views.py index_icam -- request = ' + str(request)
-##klh    logger.info(msg)
-##klh
-##klh    #if SESSION_KEY in request.session:
-##klh    #    msg = "      request.session items:"
-##klh    #    logger.info(msg)
-##klh    #    try:
-##klh    #        for k, v in request.session.items():
-##klh    #            msg = "        " + str(k) + " = " + str(v)
-##klh    #            logger.info(msg)
-##klh    #    except KeyError:
-##klh    #        pass
-##klh    #else:
-##klh    #    msg = "      NO SESSION_KEY in request.session"
-##klh    #    logger.info(msg)
-##klh
-##klh    req = prepare_django_request(request)
-##klh    #msg = 'index_icam -- prepare_django_request req = '
-##klh    #for k in req.keys():
-##klh    #    msg = msg + '\n' + str(k) + ': ' + str(req[k])
-##klh    #logger.info(msg)
-##klh
-##klh    auth = noaaOneLogin_Saml2_Auth(req, custom_base_path=settings.SAML_FOLDER)
-##klh    #msg = 'auth: ' + str(auth)
-##klh    #logger.info(msg)
-##klh
-##klh    errors = []
-##klh    error_reason = None
-##klh    not_auth_warn = False
-##klh    success_slo = False
-##klh    attributes = False
-##klh    paint_logout = False
-##klh    if 'sso' in req['get_data']:
-##klh        login = auth.login()
-##klh        #msg = 'sso login HttpResponseRedirect( ' + str(login) + ' )'
-##klh        #logger.info(msg)
-##klh        return HttpResponseRedirect(login)
-##klh
-##klh        # If AuthNRequest ID need to be stored in order to later validate it, do instead
-##klh        #sso_built_url = auth.login()
-##klh        #msg = 'sso_built_url: ' + str(sso_built_url)
-##klh        #logger.info(msg)
-##klh        #request.session['AuthNRequestID'] = auth.get_last_request_id()
-##klh        #msg = 'sso request.session[AuthNRequestID]: '+ str(request.session['AuthNRequestID']) 
-##klh        #logger.info(msg)
-##klh        #return HttpResponseRedirect(sso_built_url)
-##klh    elif 'sso2' in req['get_data']:
-##klh        return_to = OneLogin_Saml2_Utils.get_self_url(req) + reverse('attrs')
-##klh        return HttpResponseRedirect(auth.login(return_to)) 
-##klh    elif 'slo' in req['get_data']:
-##klh        name_id = session_index_icam = name_id_format = name_id_nq = name_id_spnq = None
-##klh        if 'samlNameId' in request.session:
-##klh            name_id = request.session['samlNameId']
-##klh        if 'samlSessionIndex' in request.session:
-##klh            session_index = request.session['samlSessionIndex']
-##klh        if 'samlNameIdFormat' in request.session:
-##klh            name_id_format = request.session['samlNameIdFormat']
-##klh        if 'samlNameIdNameQualifier' in request.session:
-##klh            name_id_nq = request.session['samlNameIdNameQualifier']
-##klh        if 'samlNameIdSPNameQualifier' in request.session:
-##klh            name_id_spnq = request.session['samlNameIdSPNameQualifier']
-##klh
-##klh        request_id = None
-##klh        if 'LogoutRequestID' in request.session:
-##klh            request_id = request.session['LogoutRequestID']
-##klh
-##klh        #msg = "   in slo -- request_id = " + str(request_id)
-##klh        #logger.info(msg)
-##klh
-##klh        url = auth.logout(name_id=name_id, session_index=session_index, nq=name_id_nq, name_id_format=name_id_format, spnq=name_id_spnq)
-##klh        msg = '       slo HttpResponseRedirect( ' + str(url) + ' )'
-##klh        logger.info(msg)
-##klh        return HttpResponseRedirect(url)
-##klh
-##klh        # If LogoutRequest ID need to be stored in order to later validate it, do instead
-##klh        #slo_built_url = auth.logout(name_id=name_id, session_index=session_index)
-##klh        #msg = 'slo_built_url: ' + str(slo_built_url)
-##klh        #logger.info(msg)
-##klh        #request.session['LogoutRequestID'] = auth.get_last_request_id()
-##klh        #msg = 'request.session[LogoutRequestID]: '+ str(request.session['LogoutRequestID']) 
-##klh        #logger.info(msg)
-##klh
-##klh        #return HttpResponseRedirect(slo_built_url)
-##klh    elif 'acs' in req['get_data']:
-##klh        request_id = None
-##klh        if 'AuthNRequestID' in request.session:
-##klh            request_id = request.session['AuthNRequestID']
-##klh
-##klh        #msg = 'acs request_id = ' + str(request_id)
-##klh        #logger.info(msg)
-##klh
-##klh        auth.process_response(request_id=request_id)
-##klh        errors = auth.get_errors()
-##klh        #msg = "auth.process_response errors = " + str(errors)
-##klh        #logger.info(msg)
-##klh
-##klh        not_auth_warn = not auth.is_authenticated()
-##klh        #msg = "    acs not_auth_warn = " + str(not_auth_warn)
-##klh        #logger.info(msg)
-##klh        #msg = "    acs auth.get_attributes() = " + str(auth.get_attributes())
-##klh        #logger.info(msg)
-##klh        #msg = "    acs auth.get_attribute('ou2') = " + str(auth.get_attribute('ou2'))
-##klh        #logger.info(msg)
-##klh        if not errors:
-##klh            if 'AuthNRequestID' in request.session:
-##klh                del request.session['AuthNRequestID']
-##klh            request.session['samlUserdata'] = auth.get_attributes()
-##klh            request.session['samlNameId'] = auth.get_nameid()
-##klh            request.session['samlNameIdFormat'] = auth.get_nameid_format()
-##klh            request.session['samlNameIdNameQualifier'] = auth.get_nameid_nq()
-##klh            request.session['samlNameIdSPNameQualifier'] = auth.get_nameid_spnq()
-##klh            request.session['samlSessionIndex'] = auth.get_session_index()
-##klh            #msg = 'session items:'
-##klh            #logger.info(msg)
-##klh            #for k in request.session.keys():
-##klh            #    msg = str(k) + ": " + str(request.session[k])
-##klh            #    logger.info(msg)
-##klh
-##klh            if 'RelayState' in req['post_data'] and OneLogin_Saml2_Utils.get_self_url(req) != req['post_data']['RelayState']:
-##klh                # To avoid 'Open Redirect' attacks, before execute the redirection confirm
-##klh                # the value of the req['post_data']['RelayState'] is a trusted URL.
-##klh                msg = '  acs HttpResponseRedirect( ' + str(auth.redirect_to(req['post_data']['RelayState'])) + ' )'
-##klh                logger.info(msg)
-##klh                return HttpResponseRedirect(auth.redirect_to(req['post_data']['RelayState']))
-##klh        elif auth.get_settings().is_debug_active():
-##klh                error_reason = auth.get_last_error_reason()
-##klh    elif 'sls' in req['get_data']:
-##klh        request_id = None
-##klh        if 'LogoutRequestID' in request.session:
-##klh            request_id = request.session['LogoutRequestID']
-##klh
-##klh        #msg = "   in sls -- request.session: " + str(request.session)
-##klh        #for item in request.session:
-##klh        #    msg = msg + "              " + str(item)
-##klh        #logger.info(msg)
-##klh
-##klh        dscb = lambda: request.session.flush()
-##klh        #msg = "    dscb = " + str(dscb)
-##klh        #logger.info
-##klh
-##klh        url = auth.process_slo(request_id=request_id, delete_session_cb=dscb)
-##klh
-##klh        #msg = "      cleaned request_session:\n"
-##klh        #for item in request.session:
-##klh        #    msg = msg + "              " + str(item)
-##klh        #logger.info(msg)
-##klh
-##klh        errors = auth.get_errors()
-##klh        if len(errors) == 0:
-##klh            #msg = "      slo url: " + str(url)
-##klh            #logger.info(msg)
-##klh            if url is not None:
-##klh                # To avoid 'Open Redirect' attacks, before execute the redirection confirm
-##klh                # the value of the url is a trusted URL.
-##klh                msg = "   sls HttpResponseRedirect( " + str(url) + ' )'
-##klh                logger.info(msg)
-##klh                return HttpResponseRedirect(url)
-##klh            else:
-##klh                msg = "     -- sls render logged_out.html"
-##klh                logger.info(msg)
-##klh                return render(request, 'logged_out.html')
-##klh
-##klh        elif auth.get_settings().is_debug_active():
-##klh            error_reason = auth.get_last_error_reason()
-##klh
-##klh    if 'samlUserdata' in request.session:
-##klh        paint_logout = True
-##klh        if len(request.session['samlUserdata']) > 0:
-##klh            attributes = request.session['samlUserdata'].items()
-##klh
-##klh    if attributes:
-##klh        #msg = "attributes: " + str(attributes)
-##klh        #logger.info(msg)
-##klh        email = None
-##klh        sirname = None
-##klh        givenname = None
-##klh        for (k, v) in attributes:
-##klh            if str(k) == 'mail':
-##klh                email = v[0]
-##klh            if str(k) == 'sn':
-##klh                sirname = v[0]
-##klh            if str(k) == 'givenName':
-##klh                givenname = v[0]
-##klh        #msg = "email: " + str(email)
-##klh        #logger.info(msg)
-##klh        username = givenname + '.' + sirname
-##klh        #msg = '      username from SAML is ' + str(username)
-##klh        #logger.info(msg)
-##klh
-##klh        user = None
-##klh        qs = get_user_model().objects.filter(email=email)
-##klh        if qs.count() > int(0):
-##klh            user = qs[0]
-##klh            #msg = msg + ", found backend User " + str(user)
-##klh            #logger.info(msg)
-##klh        else:
-##klh            user = get_user_model().objects.create(email=email, username=username)
-##klh            msg = "      created backend User " + str(user) + " for email = " + str(email) + " and username = " + str(username)
-##klh            logger.info(msg)
-##klh            
-##klh        request.session['saml_auth_user'] = email
-##klh
-##klh        return_to = settings.AUTH_RETURN_TO
-##klh        msg = "       attributes found -- HttpResponseRedirect( " + str(return_to) + ' )'
-##klh        logger.info(msg)
-##klh
-##klh        return HttpResponseRedirect(return_to)
-##klh    else:
-##klh        msg = "     -- no attributes found render index.html"
-##klh        logger.info(msg)
-##klh        return render(request, 'index.html', {'errors': errors, 'error_reason': error_reason, not_auth_warn: not_auth_warn, 'success_slo': success_slo,
-##klh                                            'attributes': attributes, 'paint_logout': paint_logout})
-##klh
-##klh@ensure_csrf_cookie
-##klhdef attrs(request):
-##klh    paint_logout = False
-##klh    attributes = False
-##klh
-##klh    #msg = "in attrs, request: " + str(request)
-##klh    #logger.info(msg)
-##klh
-##klh    #msg = "in attrs, request.session " + str(request.session)
-##klh    #logger.info(msg)
-##klh
-##klh    if 'samlUserdata' in request.session:
-##klh        paint_logout = True
-##klh        if len(request.session['samlUserdata']) > 0:
-##klh            attributes = request.session['samlUserdata'].items()
-##klh
-##klh    return render(request, 'attrs.html',
-##klh                  {'paint_logout': paint_logout,
-##klh                   'attributes': attributes})
-##klh
-##klh@ensure_csrf_cookie
-##klhdef metadata(request):
-##klh
-##klh    #req = prepare_django_request(request)
-##klh    #auth = init_saml_auth(req)
-##klh    #saml_settings = auth.get_settings()
-##klh    #msg = 'metadata request: ' + str(request)
-##klh    #logger.info(msg)
-##klh 
-##klh    saml_settings = OneLogin_Saml2_Settings(settings=None, custom_base_path=settings.SAML_FOLDER, sp_validation_only=True)
-##klh    metadata = saml_settings.get_sp_metadata().decode("utf-8")  
-##klh    errors = saml_settings.validate_metadata(metadata)
-##klh
-##klh    if len(errors) == 0:
-##klh        resp = HttpResponse(content=metadata, content_type='text/xml')
-##klh    else:
-##klh        resp = HttpResponseServerError(content=', '.join(errors))
-##klh    return resp
-##klh
-##klh
-##klh@ensure_csrf_cookie
-##klhdef logged_out(request):
-##klh    msg = "     in provision logged_out -- request: " + str(request)
-##klh    logger.info(msg)
-##klh    if request.session.user:
-##klh        msg = "                logged out request.session user: " + str(request.session.user)
-##klh    else:
-##klh        msg = "                no request.session user"
-##klh    logger.info(msg)
-##klh
-##klh    return render(request, 'logged_out.html')
-##klh
-##klh@ensure_csrf_cookie
-##klhdef logout_saml(request):
-##klh    msg = "     in logout_saml -- request: " + str(request)
-##klh    logger.info(msg)
-##klh
-##klh    req = prepare_django_request(request)
-##klh    auth = OneLogin_Saml2_Auth(req, custom_base_path=settings.SAML_FOLDER)
-##klh
-##klh    name_id = session_index = name_id_format = name_id_nq = name_id_spnq = None
-##klh    if 'samlNameId' in request.session:
-##klh        name_id = request.session['samlNameId']
-##klh    if 'samlSessionIndex' in request.session:
-##klh        session_index = request.session['samlSessionIndex']
-##klh    if 'samlNameIdFormat' in request.session:
-##klh        name_id_format = request.session['samlNameIdFormat']
-##klh    if 'samlNameIdNameQualifier' in request.session:
-##klh        name_id_nq = request.session['samlNameIdNameQualifier']
-##klh    if 'samlNameIdSPNameQualifier' in request.session:
-##klh        name_id_spnq = request.session['samlNameIdSPNameQualifier']
-##klh
-##klh    #Remove the authenticated user's ID from the request and flush their session data.
-##klh    # Dispatch the signal before the user is logged out so the receivers have a
-##klh    # chance to find out *who* logged out.
-##klh    user = getattr(request, 'user', None)
-##klh    if user is not None and 'anonymous' not in str(user).lower():
-##klh        #user.is_active = False
-##klh        user.is_staff = False
-##klh        for g in user.groups.all():
-##klh            user.groups.remove(g)
-##klh        user.save()
-##klh        user_logged_out.send(sender=user.__class__, request=request, user=user)
-##klh
-##klh    if SESSION_KEY in request.session:
-##klh        request.session.flush()
-##klh
-##klh    request_id = None
-##klh    if 'LogoutRequestID' in request.session:
-##klh        request_id = request.session['LogoutRequestID']
-##klh    #msg = "      request_id: " + str(request_id)
-##klh    #logger.info(msg)
-##klh
-##klh    if hasattr(request, 'user'):
-##klh        from django.contrib.auth.models import AnonymousUser
-##klh        request.user = AnonymousUser()
-##klh
-##klh    #msg = "    auth.logout( " + str(name_id) + ", " + str(session_index) + ", " + str(name_id_nq) + ", " + str(name_id_format) + ", " + str(name_id_spnq) + " )"
-##klh    #logger.info(msg)
-##klh    url = auth.logout(name_id=name_id, session_index=session_index, nq=name_id_nq, name_id_format=name_id_format, spnq=name_id_spnq)
-##klh    #msg = '    returning logout url = ' + str(url)
-##klh    #logger.info(msg)
-##klh    return HttpResponseRedirect(url)
-##klh
-##klh
-##klh#--- end of views based on python-saml-master/demo-django/demo
-##klh
 
-
-def firewxoops(request):
-    now = datetime.datetime.now()
-    now = now.replace(tzinfo=pytz.UTC)
-    html = "<html><body>Fire weather login.gov oops...  The time is now %s.</body></html>" % now
+def generate_urlsafe_token(self, token_len=None):
+    if token_len is None:
+        token_len = settings.PRODKEYLEN
+    token = secrets.token_urlsafe(token_len)
+    html = "<html><body><pre>%s</pre></body></html>" % token
     return HttpResponse(html)
+
+
+def generate_fernet_key(self):
+    key =  Fernet.generate_key().decode()
+    html = "<html><body><pre>%s</pre></body></html>" % key 
+    return HttpResponse(html)
+
+def pubcert(self):
+    html = "<html><body><pre>%s</pre></body></html>" % settings.JWT_PUBLIC_CERT 
+    return HttpResponse(html)
+
+def pubcertol(self):
+    one_line = ''
+    for line in settings.JWT_PUBLIC_CERT.split('\n'):
+        if '-----BEGIN' in str(line) or '-----END' in str(line):
+            continue
+        one_line = one_line + line
+    html = "<html><body><pre>%s</pre></body></html>" % one_line
+    return HttpResponse(html)
+
+
+SESSION_KEY = '_auth_user_id'
+@never_cache
+def samlauth(request):
+    """
+    Display the login form for the given HttpRequest.
+    """
+    #msg = "in samlauth  -- request: " + str(request)
+    #logger.info(msg)
+
+    rmsg = '        in samlauth found ' + str(len(request.session.keys())) + ' session keys:\n'
+    #for k in request.session.keys():
+    #    msg = str(k)
+    #    #  + ": " + str(request.session[k])
+    #    rmsg = rmsg + msg + '\n'
+    logger.info(rmsg)
     
-def firewxtb(request):
+    # Already logged-in, redirect to admin index
+    index_path = settings.SERVER_FQDN + "/admin"
+    return HttpResponseRedirect(index_path)
 
-    src = 'unable to read sites/demoapp_python.txt'
-    with open(os.path.join(settings.BASE_DIR, 'sites/demoapp_python.txt')) as srcfile:
-        src = srcfile.read()
 
-    template = 'unable to read templates/demoapp.html'
-    with open(os.path.join(settings.BASE_DIR, 'templates/demoapp.html')) as srcfile:
-        template = srcfile.read()
+class noaaOneLogin_Saml2_Response(OneLogin_Saml2_Response):
+    def is_valid(self, request_data, request_id=None, raise_exceptions=False):
+        """
+        Validates the response object.
+        
+        NOTE: This version ACCEPTS an assertion signed with sha-128 -- per ICAM team this is needed to support some legacy NOAA systems
+        On Mon, Aug 8, 2022 at 9:30 AM NOAA ICAM Team <icam.id.team@noaa.gov> wrote: (to kirk.l.holub)
+             Unfortunately, that may be a blocker.
+             We send back SHA1 in our signature, since we are supporting applications which can only accept SHA1.
 
-    data = {}
-    msg = "   demoapp request -- request = " + str(request)
+        :param request_data: Request Data
+        :type request_data: dict
+
+        :param request_id: Optional argument. The ID of the AuthNRequest sent by this SP to the IdP
+        :type request_id: string
+
+        :param raise_exceptions: Whether to return false on failure or raise an exception
+        :type raise_exceptions: Boolean
+
+        :returns: True if the SAML Response is valid, False if not
+        :rtype: bool
+        """
+        self._error = None
+        try:
+            # Checks SAML version
+            if self.document.get('Version', None) != '2.0':
+                raise OneLogin_Saml2_ValidationError(
+                    'Unsupported SAML version',
+                    OneLogin_Saml2_ValidationError.UNSUPPORTED_SAML_VERSION
+                )
+
+            # Checks that ID exists
+            if self.document.get('ID', None) is None:
+                raise OneLogin_Saml2_ValidationError(
+                    'Missing ID attribute on SAML Response',
+                    OneLogin_Saml2_ValidationError.MISSING_ID
+                )
+
+            # Checks that the response has the SUCCESS status
+            self.check_status()
+
+            # Checks that the response only has one assertion
+            if not self.validate_num_assertions():
+                raise OneLogin_Saml2_ValidationError(
+                    'SAML Response must contain 1 assertion',
+                    OneLogin_Saml2_ValidationError.WRONG_NUMBER_OF_ASSERTIONS
+                )
+
+            idp_data = self._settings.get_idp_data()
+            idp_entity_id = idp_data['entityId']
+            sp_data = self._settings.get_sp_data()
+            sp_entity_id = sp_data['entityId']
+
+            signed_elements = self.process_signed_elements()
+
+            has_signed_response = '{%s}Response' % OneLogin_Saml2_Constants.NS_SAMLP in signed_elements
+            has_signed_assertion = '{%s}Assertion' % OneLogin_Saml2_Constants.NS_SAML in signed_elements
+
+            #msg = "reponse.py -- is_valid: has_signed_response = " + str(has_signed_response)
+            #logger.info(msg)
+            #msg = "reponse.py -- is_valid: has_signed_assertion = " + str(has_signed_assertion)
+            #logger.info(msg)
+             
+            if self._settings.is_strict():
+                no_valid_xml_msg = 'Invalid SAML Response. Not match the saml-schema-protocol-2.0.xsd'
+                res = OneLogin_Saml2_XML.validate_xml(self.document, 'saml-schema-protocol-2.0.xsd', self._settings.is_debug_active())
+                if isinstance(res, str):
+                    raise OneLogin_Saml2_ValidationError(
+                        no_valid_xml_msg,
+                        OneLogin_Saml2_ValidationError.INVALID_XML_FORMAT
+                    )
+
+                # If encrypted, check also the decrypted document
+                if self.encrypted:
+                    res = OneLogin_Saml2_XML.validate_xml(self.decrypted_document, 'saml-schema-protocol-2.0.xsd', self._settings.is_debug_active())
+                    if isinstance(res, str):
+                        raise OneLogin_Saml2_ValidationError(
+                            no_valid_xml_msg,
+                            OneLogin_Saml2_ValidationError.INVALID_XML_FORMAT
+                        )
+
+                security = self._settings.get_security_data()
+                current_url = OneLogin_Saml2_Utils.get_self_url_no_query(request_data)
+
+                # Check if the InResponseTo of the Response matchs the ID of the AuthNRequest (requestId) if provided
+                in_response_to = self.get_in_response_to()
+                if in_response_to is not None and request_id is not None:
+                    if in_response_to != request_id:
+                        raise OneLogin_Saml2_ValidationError(
+                            'The InResponseTo of the Response: %s, does not match the ID of the AuthNRequest sent by the SP: %s' % (in_response_to, request_id),
+                            OneLogin_Saml2_ValidationError.WRONG_INRESPONSETO
+                        )
+
+                if not self.encrypted and security['wantAssertionsEncrypted']:
+                    raise OneLogin_Saml2_ValidationError(
+                        'The assertion of the Response is not encrypted and the SP require it',
+                        OneLogin_Saml2_ValidationError.NO_ENCRYPTED_ASSERTION
+                    )
+
+                if security['wantNameIdEncrypted']:
+                    encrypted_nameid_nodes = self._query_assertion('/saml:Subject/saml:EncryptedID/xenc:EncryptedData')
+                    if len(encrypted_nameid_nodes) != 1:
+                        raise OneLogin_Saml2_ValidationError(
+                            'The NameID of the Response is not encrypted and the SP require it',
+                            OneLogin_Saml2_ValidationError.NO_ENCRYPTED_NAMEID
+                        )
+
+                # Checks that a Conditions element exists
+                if not self.check_one_condition():
+                    raise OneLogin_Saml2_ValidationError(
+                        'The Assertion must include a Conditions element',
+                        OneLogin_Saml2_ValidationError.MISSING_CONDITIONS
+                    )
+
+                # Validates Assertion timestamps
+                self.validate_timestamps(raise_exceptions=True)
+
+                # Checks that an AuthnStatement element exists and is unique
+                if not self.check_one_authnstatement():
+                    raise OneLogin_Saml2_ValidationError(
+                        'The Assertion must include an AuthnStatement element',
+                        OneLogin_Saml2_ValidationError.WRONG_NUMBER_OF_AUTHSTATEMENTS
+                    )
+
+                # Checks that the response has all of the AuthnContexts that we provided in the request.
+                # Only check if failOnAuthnContextMismatch is true and requestedAuthnContext is set to a list.
+                requested_authn_contexts = security['requestedAuthnContext']
+                if security['failOnAuthnContextMismatch'] and requested_authn_contexts and requested_authn_contexts is not True:
+                    authn_contexts = self.get_authn_contexts()
+                    unmatched_contexts = set(authn_contexts).difference(requested_authn_contexts)
+                    if unmatched_contexts:
+                        raise OneLogin_Saml2_ValidationError(
+                            'The AuthnContext "%s" was not a requested context "%s"' % (', '.join(unmatched_contexts), ', '.join(requested_authn_contexts)),
+                            OneLogin_Saml2_ValidationError.AUTHN_CONTEXT_MISMATCH
+                        )
+
+                # Checks that there is at least one AttributeStatement if required
+                attribute_statement_nodes = self._query_assertion('/saml:AttributeStatement')
+                if security.get('wantAttributeStatement', True) and not attribute_statement_nodes:
+                    raise OneLogin_Saml2_ValidationError(
+                        'There is no AttributeStatement on the Response',
+                        OneLogin_Saml2_ValidationError.NO_ATTRIBUTESTATEMENT
+                    )
+
+                encrypted_attributes_nodes = self._query_assertion('/saml:AttributeStatement/saml:EncryptedAttribute')
+                if encrypted_attributes_nodes:
+                    raise OneLogin_Saml2_ValidationError(
+                        'There is an EncryptedAttribute in the Response and this SP not support them',
+                        OneLogin_Saml2_ValidationError.ENCRYPTED_ATTRIBUTES
+                    )
+
+                # Checks destination
+                destination = self.document.get('Destination', None)
+                if destination:
+                    if not OneLogin_Saml2_Utils.normalize_url(url=destination).startswith(OneLogin_Saml2_Utils.normalize_url(url=current_url)):
+                        # TODO: Review if following lines are required, since we can control the
+                        # request_data
+                        #  current_url_routed = OneLogin_Saml2_Utils.get_self_routed_url_no_query(request_data)
+                        #  if not destination.startswith(current_url_routed):
+                        raise OneLogin_Saml2_ValidationError(
+                            'The response was received at %s instead of %s' % (current_url, destination),
+                            OneLogin_Saml2_ValidationError.WRONG_DESTINATION
+                        )
+                elif destination == '':
+                    raise OneLogin_Saml2_ValidationError(
+                        'The response has an empty Destination value',
+                        OneLogin_Saml2_ValidationError.EMPTY_DESTINATION
+                    )
+                # Checks audience
+                valid_audiences = self.get_audiences()
+                if valid_audiences and sp_entity_id not in valid_audiences:
+                    raise OneLogin_Saml2_ValidationError(
+                        '%s is not a valid audience for this Response' % sp_entity_id,
+                        OneLogin_Saml2_ValidationError.WRONG_AUDIENCE
+                    )
+
+                # Checks the issuers
+                issuers = self.get_issuers()
+                for issuer in issuers:
+                    if issuer is None or issuer != idp_entity_id:
+                        raise OneLogin_Saml2_ValidationError(
+                            'Invalid issuer in the Assertion/Response (expected %(idpEntityId)s, got %(issuer)s)' %
+                            {
+                                'idpEntityId': idp_entity_id,
+                                'issuer': issuer
+                            },
+                            OneLogin_Saml2_ValidationError.WRONG_ISSUER
+                        )
+
+                # Checks the session Expiration
+                session_expiration = self.get_session_not_on_or_after()
+                if session_expiration and session_expiration <= OneLogin_Saml2_Utils.now():
+                    raise OneLogin_Saml2_ValidationError(
+                        'The attributes have expired, based on the SessionNotOnOrAfter of the AttributeStatement of this Response',
+                        OneLogin_Saml2_ValidationError.SESSION_EXPIRED
+                    )
+
+                # Checks the SubjectConfirmation, at least one SubjectConfirmation must be valid
+                any_subject_confirmation = False
+                subject_confirmation_nodes = self._query_assertion('/saml:Subject/saml:SubjectConfirmation')
+
+                for scn in subject_confirmation_nodes:
+                    method = scn.get('Method', None)
+                    if method and method != OneLogin_Saml2_Constants.CM_BEARER:
+                        continue
+                    sc_data = scn.find('saml:SubjectConfirmationData', namespaces=OneLogin_Saml2_Constants.NSMAP)
+                    if sc_data is None:
+                        continue
+                    else:
+                        irt = sc_data.get('InResponseTo', None)
+                        if in_response_to and irt and irt != in_response_to:
+                            continue
+                        recipient = sc_data.get('Recipient', None)
+                        if recipient and current_url not in recipient:
+                            continue
+                        nooa = sc_data.get('NotOnOrAfter', None)
+                        if nooa:
+                            parsed_nooa = OneLogin_Saml2_Utils.parse_SAML_to_time(nooa)
+                            if parsed_nooa <= OneLogin_Saml2_Utils.now():
+                                continue
+                        nb = sc_data.get('NotBefore', None)
+                        if nb:
+                            parsed_nb = OneLogin_Saml2_Utils.parse_SAML_to_time(nb)
+                            if parsed_nb > OneLogin_Saml2_Utils.now():
+                                continue
+
+                        if nooa:
+                            self.valid_scd_not_on_or_after = OneLogin_Saml2_Utils.parse_SAML_to_time(nooa)
+
+                        any_subject_confirmation = True
+                        break
+
+                if not any_subject_confirmation:
+                    raise OneLogin_Saml2_ValidationError(
+                        'A valid SubjectConfirmation was not found on this Response',
+                        OneLogin_Saml2_ValidationError.WRONG_SUBJECTCONFIRMATION
+                    )
+
+                if security['wantAssertionsSigned'] and not has_signed_assertion:
+                    raise OneLogin_Saml2_ValidationError(
+                        'The Assertion of the Response is not signed and the SP require it',
+                        OneLogin_Saml2_ValidationError.NO_SIGNED_ASSERTION
+                    )
+
+                if security['wantMessagesSigned'] and not has_signed_response:
+                    raise OneLogin_Saml2_ValidationError(
+                        'The Message of the Response is not signed and the SP require it',
+                        OneLogin_Saml2_ValidationError.NO_SIGNED_MESSAGE
+                    )
+
+            if not signed_elements or (not has_signed_response and not has_signed_assertion):
+                raise OneLogin_Saml2_ValidationError(
+                    'No Signature found. SAML Response rejected',
+                    OneLogin_Saml2_ValidationError.NO_SIGNATURE_FOUND
+                )
+            else:
+                cert = self._settings.get_idp_cert()
+                fingerprint = idp_data.get('certFingerprint', None)
+                if fingerprint:
+                    fingerprint = OneLogin_Saml2_Utils.format_finger_print(fingerprint)
+                fingerprintalg = idp_data.get('certFingerprintAlgorithm', None)
+
+                multicerts = None
+                if 'x509certMulti' in idp_data and 'signing' in idp_data['x509certMulti'] and idp_data['x509certMulti']['signing']:
+                    multicerts = idp_data['x509certMulti']['signing']
+
+                # If find a Signature on the Response, validates it checking the original response
+                if has_signed_response and not OneLogin_Saml2_Utils.validate_sign(self.document, cert, fingerprint, fingerprintalg, xpath=OneLogin_Saml2_Utils.RESPONSE_SIGNATURE_XPATH, multicerts=multicerts, raise_exceptions=False):
+                    #msg = "    has_signed_reponse document: " + str(self.document)
+                    #logger.info(msg)
+                    raise OneLogin_Saml2_ValidationError(
+                        'Signature validation failed. SAML Response rejected',
+                        OneLogin_Saml2_ValidationError.INVALID_SIGNATURE
+                    )
+
+                document_check_assertion = self.decrypted_document if self.encrypted else self.document
+                if has_signed_assertion and not OneLogin_Saml2_Utils.validate_sign(document_check_assertion, cert, fingerprint, fingerprintalg, xpath=OneLogin_Saml2_Utils.ASSERTION_SIGNATURE_XPATH, multicerts=multicerts, raise_exceptions=False):
+                    # some NOAA systems cannot handle 256 bit encryption!  --- per conversation with icam team
+                    # HOWEVER, 256 must be used to intiate the response....
+                    msg = "    has_signed_assertion is " + str(has_signed_assertion) + ", NOT raising error OneLogin_Saml2_ValidationError -- xml document:" + str(self.get_xml_document())
+                    msg = msg + "    accepting assertion signed with sha-128 -- per ICAM team this is needed to support some legacy NOAA systems"
+
+                                         
+                    #raise OneLogin_Saml2_ValidationError(
+                    #    'Signature validation failed. SAML Response rejected',
+                    #    OneLogin_Saml2_ValidationError.INVALID_SIGNATURE
+                    #)
+
+            return True
+        except Exception as err:
+            self._error = str(err)
+            debug = self._settings.is_debug_active()
+            if debug:
+                print(err)
+            if raise_exceptions:
+                raise
+            return False
+
+
+class noaaOneLogin_Saml2_Auth(OneLogin_Saml2_Auth):
+    response_class = noaaOneLogin_Saml2_Response
+
+
+# views from python-saml-master/demo-django/demo
+def prepare_django_request(request):
+    # If server is behind proxys or balancers use the HTTP_X_FORWARDED fields
+    result = {
+        'https': 'on' if request.is_secure() else 'off',
+        'http_host': request.META['HTTP_HOST'],
+        'script_name': request.META['PATH_INFO'],
+        'server_port': request.META['SERVER_PORT'],
+        'get_data': request.GET.copy(),
+        'post_data': request.POST.copy(),
+        # Uncomment if using ADFS as IdP, https://github.com/onelogin/python-saml/pull/144
+        # 'lowercase_urlencoding': True,
+        'query_string': request.META['QUERY_STRING']
+    }
+    #msg = '  prepare_django_request result len = ' + str(len(result))
+    #logger.debug(msg)
+    return result
+
+
+#@ensure_csrf_cookie
+def index(request):
+    msg = 'in index -- request = ' + str(request)
     logger.info(msg)
-    data['request'] = request 
 
-    access_token = None
-    if 'access_token=' in str(request):
-        (junk, access_token) = str(request).split('=')
-        access_token = access_token[:-2]
-    msg = "   demoapp landing -- access_token = " + str(access_token)
+    req = prepare_django_request(request)
+    #msg = 'index_icam -- prepare_django_request req = '
+    #for k in req.keys():
+    #    msg = msg + '\n' + str(k) + ': ' + str(req[k])
+    #logger.info(msg)
+
+    #try:
+    #    thissession = request.session
+    #    msg = "   this request.session: " + str(thissession)
+    #    logger.info(msg)
+    #except KeyError:
+    #    msg = "   KeyError for thissession: " + str(session)
+    #logger.info(msg)
+
+    auth = noaaOneLogin_Saml2_Auth(req, custom_base_path=settings.SAML_FOLDER)
+    #msg = 'auth: ' + str(auth)
+    #logger.info(msg)
+
+    errors = []
+    error_reason = None
+    not_auth_warn = False
+    success_slo = False
+    paint_logout = False
+    if 'sso' in req['get_data']:
+        auth = noaaOneLogin_Saml2_Auth(req, custom_base_path=settings.SAML_FOLDER)
+        msg = '  SAML auth: ' + str(auth)
+        logger.info(msg)
+        login = auth.login()
+        shortened = login[0:100] + '... ' + ' chars removed ...' + login[-15:]
+        lenshortened = len(shortened)
+        shortened = login[0:100] + '... ' + str(lenshortened) + ' chars removed ...' + login[-15:]
+        msg = '  sso login HttpResponseRedirect( ' + str(shortened) + ' )'
+        logger.info(msg)
+        return HttpResponseRedirect(login)
+
+        # If AuthNRequest ID need to be stored in order to later validate it, do instead
+        #sso_built_url = auth.login()
+        #msg = 'sso_built_url: ' + str(sso_built_url)
+        #logger.info(msg)
+        #request.session['AuthNRequestID'] = auth.get_last_request_id()
+        #msg = 'sso request.session[AuthNRequestID]: '+ str(request.session['AuthNRequestID']) 
+        #logger.info(msg)
+        #return HttpResponseRedirect(sso_built_url)
+    elif 'sso2' in req['get_data']:
+        return_to = OneLogin_Saml2_Utils.get_self_url(req) + reverse('attrs')
+        return HttpResponseRedirect(auth.login(return_to)) 
+    elif 'slo' in req['get_data']:
+        name_id = session_index_icam = name_id_format = name_id_nq = name_id_spnq = None
+        if 'samlNameId' in request.session:
+            name_id = request.session['samlNameId']
+        if 'samlSessionIndex' in request.session:
+            session_index = request.session['samlSessionIndex']
+        if 'samlNameIdFormat' in request.session:
+            name_id_format = request.session['samlNameIdFormat']
+        if 'samlNameIdNameQualifier' in request.session:
+            name_id_nq = request.session['samlNameIdNameQualifier']
+        if 'samlNameIdSPNameQualifier' in request.session:
+            name_id_spnq = request.session['samlNameIdSPNameQualifier']
+
+        request_id = None
+        if 'LogoutRequestID' in request.session:
+            request_id = request.session['LogoutRequestID']
+
+        msg = "   in slo -- request_id = " + str(request_id)
+        logger.info(msg)
+
+        url = auth.logout(name_id=name_id, session_index=session_index, nq=name_id_nq, name_id_format=name_id_format, spnq=name_id_spnq)
+        msg = '       slo HttpResponseRedirect( ' + str(url) + ' )'
+        logger.info(msg)
+        return HttpResponseRedirect(url)
+
+        # If LogoutRequest ID need to be stored in order to later validate it, do instead
+        #slo_built_url = auth.logout(name_id=name_id, session_index=session_index)
+        #msg = 'slo_built_url: ' + str(slo_built_url)
+        #logger.info(msg)
+        #request.session['LogoutRequestID'] = auth.get_last_request_id()
+        #msg = 'request.session[LogoutRequestID]: '+ str(request.session['LogoutRequestID']) 
+        #logger.info(msg)
+
+        #return HttpResponseRedirect(slo_built_url)
+    elif 'acs' in req['get_data']:
+        #msg = '      acs req = ' + str(req)
+        #logger.info(msg)
+        request_id = None
+           
+        if 'AuthNRequestID' in request.session:
+            request_id = request.session['AuthNRequestID']
+            #msg = '    in acs request_id = ' + str(request_id)
+            #logger.info(msg)
+        auth.process_response(request_id=request_id)
+        #msg = "    au: " + str(errors)
+        #logger.info(msg)
+        errors = auth.get_errors()
+        #msg = "    errors: " + str(errors)
+        #logger.info(msg)
+        not_auth_warn = not auth.is_authenticated()
+        #msg = "auth.process_response errors = " + str(errors)
+        #logger.info(msg)
+        msg = "    acs len auth.get_attributes() = " + str(len(auth.get_attributes()))
+        logger.info(msg)
+        #msg = "    acs auth.get_attribute('LineOffice') = " + str(auth.get_attribute('LineOffice'))
+        #logger.info(msg)
+        #msg = "    acs auth.get_attribute('ou0') = " + str(auth.get_attribute('ou0'))
+        #logger.info(msg)
+        #msg = "    acs auth.get_attribute('ou1') = " + str(auth.get_attribute('ou1'))
+        #logger.info(msg)
+        #msg = "    acs auth.get_attribute('ou2') = " + str(auth.get_attribute('ou2'))
+        #logger.info(msg)
+        #msg = "    acs auth.get_attribute('ou3') = " + str(auth.get_attribute('ou3'))
+        #logger.info(msg)
+        #msg = "    acs auth.get_attribute('ou4') = " + str(auth.get_attribute('ou4'))
+        #logger.info(msg)
+        if not errors:
+            if 'AuthNRequestID' in request.session:
+                del request.session['AuthNRequestID']
+            request.session['samlUserdata'] = auth.get_attributes()
+            request.session['samlNameId'] = auth.get_nameid()
+            request.session['samlNameIdFormat'] = auth.get_nameid_format()
+            request.session['samlNameIdNameQualifier'] = auth.get_nameid_nq()
+            request.session['samlNameIdSPNameQualifier'] = auth.get_nameid_spnq()
+            request.session['samlSessionIndex'] = auth.get_session_index()
+            #msg = 'session items:'
+            #logger.info(msg)
+            #for k in request.session.keys():
+            #    msg = str(k) + ": " + str(request.session[k])
+            #    logger.info(msg)
+
+            #msg = "     req for OneLogin_Saml2_Utils.get_self_url(req): " + str(req)
+            #logger.info(msg)
+            shortened = str(req)[0:100] + '... ' + ' chars removed ...' + str(req)[-15:]
+            lenshortened = len(shortened)
+            shortened = str(req)[0:100] + '... ' + str(lenshortened) + ' chars removed ...' + str(req)[-15:]
+            #msg = "     OneLogin_Saml2_Utils.get_self_url(req) = " + str(OneLogin_Saml2_Utils.get_self_url(req))
+            #logger.info(msg)
+            if 'RelayState' in req['post_data'] and OneLogin_Saml2_Utils.get_self_url(req) != req['post_data']['RelayState']:
+                # To avoid 'Open Redirect' attacks, before execute the redirection confirm
+                # the value of the req['post_data']['RelayState'] is a trusted URL.
+                msg = '  acs return to: ' + str(auth.redirect_to(req['post_data']['RelayState']))
+                logger.info(msg)
+                return HttpResponseRedirect(auth.redirect_to(req['post_data']['RelayState']))
+            elif auth.get_settings().is_debug_active():
+                error_reason = auth.get_last_error_reason()
+                msg = "   error_reason: " + str(error_reason)
+                logger.info(msg)
+    elif 'sls' in req['get_data']:
+        request_id = None
+        if 'LogoutRequestID' in request.session:
+            request_id = request.session['LogoutRequestID']
+
+        #msg = "   in sls -- request.session: " + str(request.session)
+        #for item in request.session:
+        #    msg = msg + "              " + str(item)
+        #logger.info(msg)
+
+        dscb = lambda: request.session.flush()
+        #msg = "    dscb = " + str(dscb)
+        #logger.info
+
+        url = auth.process_slo(request_id=request_id, delete_session_cb=dscb)
+
+        #msg = "      cleaned request_session:\n"
+        #for item in request.session:
+        #    msg = msg + "              " + str(item)
+        #logger.info(msg)
+
+        errors = auth.get_errors()
+        if len(errors) == 0:
+            #msg = "      slo url: " + str(url)
+            #logger.info(msg)
+            if url is not None:
+                # To avoid 'Open Redirect' attacks, before execute the redirection confirm
+                # the value of the url is a trusted URL.
+                msg = "   sls HttpResponseRedirect( " + str(url) + ' )'
+                logger.info(msg)
+                return HttpResponseRedirect(url)
+            else:
+                msg = "     -- sls render logged_out.html"
+                logger.info(msg)
+                return render(request, 'logged_out.html')
+
+        elif auth.get_settings().is_debug_active():
+            error_reason = auth.get_last_error_reason()
+
+    attributes = False
+    try:
+        attributes = {}
+        for (k,v) in request.session['samlUserdata'].items():
+            attributes[k] = v
+    except KeyError:
+        pass
+
+    if attributes:
+        msg = "len attributes: " + str(len(attributes))
+        logger.info(msg)
+        email = None
+        numgroups = int(0) 
+        groups = []
+        for k in attributes.keys():
+            if str(k) == 'email':
+                email = v[0]
+            if 'ismemberof' in str(k).lower():
+                for g in attributes[k]:
+                    groups.append(g)
+                numgroups = len(groups)
+               
+        msg = "email: " + str(email)
+        logger.info(msg)
+        msg = "number of groups: " + str(numgroups)
+        logger.info(msg)
+        if len(groups) > int(1):
+            groups.sort()
+        msg = "groups:"
+        for g in groups:
+            msg = "   " + str(g)
+            logger.info(msg)
+        
+        username = str(email)
+        msg = '      username from SAML attributes: ' + str(username)
+        logger.info(msg)
+
+        user = None
+        qs = usermodel.objects.filter(email=email)
+        if qs.count() > int(0):
+            user = qs[0]
+            msg = msg + ", found backend User " + str(user)
+            logger.info(msg)
+        elif user is not None:
+            user = usermodel.objects.create(email=email, username=username)
+            msg = "      created backend User " + str(user) + " for email = " + str(email) + " and username = " + str(username)
+            logger.info(msg)
+        request.session['saml_auth_user'] = email
+
+        return_to = settings.AUTH_RETURN_TO
+        msg = "       attributes found -- HttpResponseRedirect( " + str(return_to) + ' )'
+        logger.info(msg)
+
+        return HttpResponseRedirect(return_to)
+    else:
+        msg = "     -- no attributes found render index.html"
+        logger.info(msg)
+        #return render(request, 'index.html', {'errors': errors, 'error_reason': error_reason, not_auth_warn: not_auth_warn, 'success_slo': success_slo,
+        #                                    'attributes': attributes, 'paint_logout': paint_logout})
+        attributes = []
+        lmr = Lmr()
+        for p in Project.objects.all().order_by('display_order'):
+            if p.is_enabled():
+                logo = settings.PROJECTS_PREFIX + str(p) + settings.PROJECTS_POSTFIX 
+                link = settings.LDG_BASE + 'ldg/' + str(p) + settings.LDG_POSTFIX
+                linktext = p.get_verbose_name()
+                alt = 'Logo for project ' + str(p)
+                attributes.append((str(p), link, linktext, logo, alt, lmr.next()))
+        return render(request, 'sites_grid.html', {'attributes': attributes, 'showplots': False})
+
+#@ensure_csrf_cookie
+def attrs(request):
+    paint_logout = False
+    attributes = False
+
+    #msg = "in attrs, request: " + str(request)
+    #logger.info(msg)
+
+    #msg = "in attrs, request.session " + str(request.session)
+    #logger.info(msg)
+
+    if 'samlUserdata' in request.session:
+        paint_logout = True
+        if len(request.session['samlUserdata']) > 0:
+            attributes = request.session['samlUserdata'].items()
+
+    return render(request, 'attrs.html',
+                  {'paint_logout': paint_logout,
+                   'attributes': attributes})
+
+#@ensure_csrf_cookie
+def metadata(request):
+
+    #req = prepare_django_request(request)
+    #auth = init_saml_auth(req)
+    #saml_settings = auth.get_settings()
+    #msg = 'metadata request: ' + str(request)
+    #logger.info(msg)
+ 
+    saml_settings = OneLogin_Saml2_Settings(settings=None, custom_base_path=settings.SAML_FOLDER, sp_validation_only=True)
+    metadata = saml_settings.get_sp_metadata().decode("utf-8")  
+    errors = saml_settings.validate_metadata(metadata)
+
+    if len(errors) == 0:
+        resp = HttpResponse(content=metadata, content_type='text/xml')
+    else:
+        resp = HttpResponseServerError(content=', '.join(errors))
+    return resp
+
+
+#@ensure_csrf_cookie
+def logged_out(request):
+    msg = "     in provision logged_out -- request: " + str(request)
+    logger.info(msg)
+    if request.session.user:
+        msg = "                logged out request.session user: " + str(request.session.user)
+    else:
+        msg = "                no request.session user"
     logger.info(msg)
 
-    try:
-        msg = "   request.headers = " + str(request.headers)
-    except KeyError:
-        msg = "   NO request.headers found"
-    data['request.headers'] = msg 
-    #logger.info(msg)
-    try:
-        msg = request.session["Authorization"]
-    except KeyError:
-        msg = "   NO request.session found"
-    data['request.session'] = msg 
+    return render(request, 'logged_out.html')
 
-    # the trailing '/' is MANDATORY
-    extattrsurl = "https://gsl.noaa.gov/ssop/sites/attrsjwt/" + str(access_token) + "/"
-    #msg = "   external attrsurl: " + str(extattrsurl)
-    intattrsurl = "https://gsl-webstage8.gsd.esrl.noaa.gov/ssop/sites/attrsjwt/" + str(access_token) + "/"
-    #msg = "   internal attrsurl: " + str(intattrsurl)
-    #logger.info(msg)
+#@ensure_csrf_cookie
+def logout_saml(request):
+    msg = "     in logout_saml -- request: " + str(request)
+    logger.info(msg)
 
-    # curl headers need str vs {} for requests.get
-    cheaders = '"Authorization: Bearer ' + str(access_token) + '"'
+    req = prepare_django_request(request)
+    auth = OneLogin_Saml2_Auth(req, custom_base_path=settings.SAML_FOLDER)
 
-    extcurl_cmdl = []
-    extcurl_cmdl.append('/usr/bin/curl')
-    extcurl_cmdl.append('-v')
-    extcurl_cmdl.append('-x')
-    extcurl_cmdl.append(settings.HTTP_PROXY)
-    extcurl_cmdl.append('-H')
-    extcurl_cmdl.append(cheaders)
-    extcurl_cmdl.append('https://noaa.gov')
-    #extcurl_cmdl.append(intattrsurl)
+    name_id = session_index = name_id_format = name_id_nq = name_id_spnq = None
+    if 'samlNameId' in request.session:
+        name_id = request.session['samlNameId']
+    if 'samlSessionIndex' in request.session:
+        session_index = request.session['samlSessionIndex']
+    if 'samlNameIdFormat' in request.session:
+        name_id_format = request.session['samlNameIdFormat']
+    if 'samlNameIdNameQualifier' in request.session:
+        name_id_nq = request.session['samlNameIdNameQualifier']
+    if 'samlNameIdSPNameQualifier' in request.session:
+        name_id_spnq = request.session['samlNameIdSPNameQualifier']
 
-    extcurl = 'curl -v -x ' + settings.HTTP_PROXY + '  -H "' + cheaders + '" ' + intattrsurl
-    #logger.info(extcurl)
-    intcurl = 'curl -v -x ' + settings.HTTP_PROXY + '  -H "' + cheaders + '" ' + extattrsurl
-    #logger.info(intcurl)
-    links = []
-    links.append(extattrsurl)
-    links.append(extcurl)
-    links.append(intattrsurl)
-    links.append(intcurl)
-    headers = {}
-    headers["Authorization"] = "Bearer " + str(access_token)
-    proxies = {}
-    proxies["http"] = str(settings.HTTP_PROXY)
-    proxies["https"] = str(settings.HTTP_PROXY)
+    #Remove the authenticated user's ID from the request and flush their session data.
+    # Dispatch the signal before the user is logged out so the receivers have a
+    # chance to find out *who* logged out.
+    user = getattr(request, 'user', None)
+    if user is not None and 'anonymous' not in str(user).lower():
+        #user.is_active = False
+        user.is_staff = False
+        for g in user.groups.all():
+            user.groups.remove(g)
+        user.save()
+        user_logged_out.send(sender=user.__class__, request=request, user=user)
 
-    # using internal url since this demo is running in the DMZ
-    #msg = "   trying extcurl_cmdl of " + str(extcurl_cmdl) 
-    #logger.info(msg)
-    #status, result = runcmdl(extcurl_cmdl, True)
-    #msg = "   status, result: " + str(status) + ', ' + str(result)
-    #logger.info(msg)
-    #dit = requests.get(intattrsurl, proxies=proxies, headers=headers)
-    #msg = "   data in transit: " + dit.text
+    if SESSION_KEY in request.session:
+        request.session.flush()
+
+    request_id = None
+    if 'LogoutRequestID' in request.session:
+        request_id = request.session['LogoutRequestID']
+    #msg = "      request_id: " + str(request_id)
     #logger.info(msg)
 
-    dittext = 'Welcome to Fire Weather Testbed\n\n'
-    dittext = dittext + ' ---  dit demonstration text -- this will do for now until I figure out what is blocking this....!'
-    data['dit'] = dittext
+    if hasattr(request, 'user'):
+        from django.contrib.auth.models import AnonymousUser
+        request.user = AnonymousUser()
 
-    # not finishing due to DMZ issue -- but this should be a good start
-    # dit -- data in transit is a payload within the json web token (jwt.io)
-    #decode_key = connection.project.get_decode_key()
-    #dar = Fernet(decode_key)
-    #dit = bytes_in_string(attributes[0][1])
-    #decrypteddata = dar.decrypt(dit).decode()
-    #data['cleardata'] = decrypteddata 
+    #msg = "    auth.logout( " + str(name_id) + ", " + str(session_index) + ", " + str(name_id_nq) + ", " + str(name_id_format) + ", " + str(name_id_spnq) + " )"
+    #logger.info(msg)
+    url = auth.logout(name_id=name_id, session_index=session_index, nq=name_id_nq, name_id_format=name_id_format, spnq=name_id_spnq)
+    #msg = '    returning logout url = ' + str(url)
+    #logger.info(msg)
+    return HttpResponseRedirect(url)
 
-    pp = pprint.PrettyPrinter()
-    ppdata = pp.pformat(data)
-    logouturl = None
-    qs = AuthToken.objects.filter(token=access_token)
-    token = None
-    if qs.count() == int(1):
-        token = qs[0]
 
-    qs = Connection.objects.filter(token=token)
-    if qs.count() == int(1):
-        connection_state = qs[0].project.get_connection_state()
-        logouturl = 'https://gsl.noaa.gov/ssop/logout/' + str(connection_state)
-
-    response = render(request, 'demoapp.html', {'data': ppdata, 'links': links, 'src':src, 'template':template, 'logouturl': logouturl})
-    headers = {}
-    headers["Authorization"] = "Bearer " + str(access_token)
-    response['ssopheaders'] = headers
-    return response
+#--- end of views based on python-saml-master/demo-django/demo
 

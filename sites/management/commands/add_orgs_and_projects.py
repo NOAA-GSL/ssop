@@ -23,13 +23,19 @@ class Command(BaseCommand):
         data = json.loads(datastr)
         #print('data: ' + str(data))
 
-        for p in data.keys():
+        for o in data['organizations']:
+            print("   org: " + str(o))
+
+        for k in data['keys']:
+            print("   key: " + str(k))
+
+        for p in data['projects']:
             print("   project: " + str(p))
-        #    thisp = {}
-        #    thisp['name'] = str(k)
-        #    for a in projects[k].keys():
-        #        thisp[a] = projects[k][a] 
-        #    print('np = get_or_add_project(' + str(thisp) + ')')
-        #    np = get_or_add_project(thisp)
-        #    print("   np: " + str(np))
+            thisp = {}
+            thisp['name'] = str(k)
+            for a in data['projects'][p].keys():
+                thisp[a] = data['projects'][p][a] 
+            #print('np = get_or_add_project(' + str(thisp) + ')')
+            np = get_or_add_project(thisp)
+            print("   np: " + str(np))
 

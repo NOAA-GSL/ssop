@@ -7,8 +7,8 @@ Welcome to ssop, a Single Sign On Portal which uses login.gov as an Identity Ver
 4) Upgrade pip to latest and then pip install -r requirements.txt
 
 5) If needed, use https://developers.login.gov to establish a sandbox environment, create a team (yourself and collaborators if desired), then create and app.
-6) Update LOGINDOTGOV_ related parameters in ssop/settings.py with results from 5 or from a configuration managment system (CMS).
-7) Update JWT_ related paramerters as needed or from a CMS.
+6) Update LOGINDOTGOV_ related parameters in ssop/settings.py with results from 5 or from a configuration management system (CMS).
+7) Update JWT_ related parameters as needed or from a CMS.
 
 See the images in the screenshot folder to aid with LOGINDOTGOV settings.  Also, a final user attributes screen can be seen.
 

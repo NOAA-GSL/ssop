@@ -17,7 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
-from sites.views import getattrs, index, project_ldg, showattrs, attrsjwt, demoapp_python, demoapp_authorization, oops, connections_by_project, firewxtb, firewxoops
+from sites.views import getattrs, index, project_ldg, showattrs, attrsjwt, demoapp_python, demoapp_authorization, oops, connections_by_project, generate_urlsafe_token, generate_fernet_key, pubcert
 
 app_name = 'sites'
 
@@ -30,7 +30,10 @@ urlpatterns = [
     path('demoapp_python/', demoapp_python, name='demoapp_python'),
     path('demoapp_authorization/', demoapp_authorization, name='demoapp_authorization'),
     path('connections_by_project/', connections_by_project, name='connections_by_project'),
-    path('firewxtb/', firewxtb, name='firewxtb'),
-    path('firewxoops/', firewxoops, name='firewxoops'),
+    path('cbp/', connections_by_project, name='cbp'),
+    path('urlsafe_token/', generate_urlsafe_token, name='url_safe_token'),
+    path('urlsafe_token/<int:token_len>/', generate_urlsafe_token, name='url_safe_token'),
+    path('fernetkey/', generate_fernet_key, name='fernetkey'),
+    path('pubcert/', pubcert),
 ]
 

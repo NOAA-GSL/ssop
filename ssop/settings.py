@@ -32,8 +32,10 @@ DEFAULT_AUTO_FIELD='django.db.models.AutoField'
 #     id = models.AutoField(primary_key=True)
 #     ...
 
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SSOPSB_VERSION = 'beta -- ' + datetime.datetime.utcnow().strftime('%Y.%m.%d') 
 
 # https://stackoverflow.com/questions/42077532/django-security-and-settings
 with open(os.path.join(BASE_DIR, 'secrets.json')) as secrets_file:
@@ -54,23 +56,92 @@ def get_secret(key):
 SECRET_KEY = get_secret('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False 
+DEBUG_SAML_DEBUG = False 
 VERBOSE = False
+
+# Organization structure 
+ALL_ORGS_BY_ID = {
+    "1": {"name": "NOAA", "parent": "#none", "contact": "Kirk Holub", "email": "kirk.l.holub@noaa.gov"},
+    "2": {"name": "OAR", "parent": "NOAA", "contact": "Kirk Holub", "email": "kirk.l.holub@noaa.gov"},
+    "3": {"name": "GSL", "parent": "OAR", "contact": "Kirk Holub", "email": "kirk.l.holub@noaa.gov"},
+    "4": {"name": "GSL-ITS", "parent": "GSL", "contact": "Scott Nahman", "email": "scott.nahman@noaa.gov"},
+    "5": {"name": "GSL-WIDS", "parent": "GSL", "contact": "Dan Nietfeld", "email": "dan.nietfeld@noaa.gov"},
+    "6": {"name": "GSL-WIDS-WIZARD", "parent": "GSL-WIDS", "contact": "Jebb Stewart", "email": "jebb.q.stewart@@noaa.gov"},
+    "7": {"name": "GSL-ASCEND", "parent": "GSL", "contact": "Curtis Alexander", "email": "curtis.alexander@noaa.gov"},
+    "8": {"name": "PMEL", "parent": "OAR", "contact": "Eugene Berger", "email": "eugene.berger@noaa.gov"}
+    }
+
+# SSO
+CSRF_TRUSTED_ORIGINS = ['https://sso-dev.noaa.gov']
+SAML_FOLDER = os.path.join(BASE_DIR, 'sites/saml')
+AUTH_RETURN_TO = "/ssopsb/adminssop/sites/"
+
+
+# NOTE: --- The group names ARE repeated in AUTH_SAML_USER_FLAGS_BY_GROUP -- so if you change one here, be sure to change it in FLAGS_BY_GROUP also
+# LDAP_GROUPS and USER_FLAGS_BY_GROUP much match groupnames in add_groups_and_permissions.py
+AUTH_SAML_GROUPS = {
+    "cn=_OAR ALL,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov": {
+        "modelslist": [],
+        "viewmodels": ["About", "Attributes", "AttributeGroup", "AuthToken", "Connection", "Organization", "Project", "Sysadmin", "Uniqueuser"]
+    },
+    "cn=_OAR ESRL GSL Sysadm,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov": {
+        "modelslist": ["Project"],
+        "viewmodels": ["About", "Attributes", "AttributeGroup", "AuthToken", "Connection", "Sysadmin", "Uniqueuser"]
+    },
+    'cn=_OAR ESRL GSL SSOPAdmin,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov': {
+        "modelslist": ["About", "Attributes", "AttributeGroup", "AuthToken", "Connection", "GraphNode", "Key", "Organization", "NodeType", "Project", "Sysadmin", "Uniqueuser", "User"],
+        "viewmodels": []
+    }
+}
+
+# The critical keyword is 'is_staff'.  If missing the user will not be able to login.
+# is_staff could edited to allow use beyond GSL
+# The others are needed in backend.py within this loop:
+#             for (tag, group) in self.settings.USER_FLAGS_BY_GROUP.items():
+AUTH_SAML_USER_FLAGS_BY_GROUP = {
+    "is_active": "cn=_OAR ALL,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
+    "is_staff": "cn=_OAR ALL,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
+    "is_sysadmin": "cn=_OAR ESRL GSL Sysadm,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
+    "is_ssopadmin": "cn=_OAR ESRL GSL SSOPAdmin,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
+}
+
+# NOTE: mapping is case sensitive
+AUTH_SAML_USER_ATTR_MAP = {
+     "email": "mail",
+     "member": "isMemberOf"
+ }
+
+SSOP_SYSADS = {
+        'holubdev': {'type': 'localdev', 'email': 'kirk.l.holub@gmail.com', 'homeorg': 'noaa', 'divisions': ['oar', 'gsl', 'gsl-its']},
+}
+
+LOCAL_PASSWORD_MINIMUM_LENGTH = 40
+NONE_NAME = "#none"
 
 # Expire the session after an hour
 SESSION_COOKIE_AGE = 3600
-LOGOUT_EXPIRY = 1
+LOGOUT_EXPIRY = 2
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
+
+# email configuration
+# use 25 instead of 587
+# internal routing expects traffic from noreply.gsd@noaa.gov to originate on port 25; which is running TLS
+EMAIL_HOST = 'mail.wx.noaa.gov'
+EMAIL_PORT = 25
+EMAIL_HOST_USER = 'noreply.gsl@noaa.gov'
+EMAIL_USE_TLS = True
+SSOP_ADMIN_EMAIL = "qrba_adm.gsl@noaa.gov"
 
 # https://stackoverflow.com/questions/8023126/how-can-i-test-https-connections-with-django-as-easily-as-i-can-non-https-conne1826
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
-if DEBUG:
-    SESSION_COOKIE_AGE = 10 * SESSION_COOKIE_AGE
-else:
-    CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_SECURE = True
+#if DEBUG:
+#    SESSION_COOKIE_AGE = 10 * SESSION_COOKIE_AGE
+#else:
+#    CSRF_COOKIE_SECURE = True
+#    SESSION_COOKIE_SECURE = True
 
 # tailored from https://www.webforefront.com/django/setupdjangologging.html
 # unfortunately, cannot use a variable to enforce DRY for basepath
@@ -184,14 +255,22 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.middleware.security.SecurityMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+#    'django.middleware.csrf.CsrfViewMiddleware',
+
+# keeping model backend to support local, non-LDAP login as root as a backup (only known by KLH)
+AUTHENTICATION_BACKENDS = [
+                        "django_auth_saml.backend.SAMLBackend",
+                        "django_contrib_auth.backends.ModelBackend"
+]
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.file'
 
 ROOT_URLCONF = 'ssop.urls'
 
@@ -215,11 +294,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'ssop.wsgi.application'
 SSOP_DEPLOY_ENV = 'Development'
+DEFAULT_PROJECT_NAME = 'showattrs'
 
 if SSOP_DEPLOY_ENV == "Development":
     DEPLOY_ENV_COLOR = '#ff6666'  # light red
     DEPLOY_ENV_TEXT_COLOR = 'gold'
-    DEBUG = True
     SERVER_FQDN = 'gsl-webstage8.gsd.esrl.noaa.gov'
     SERVER_IP = '137.75.133.86'
 
@@ -245,14 +324,53 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'gsl.noaa.gov', '140.172.12.92', SERV
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
-DATABASENAME = BASE_DIR + '/ssop/db.sqlite3'
+#DATABASENAME = BASE_DIR + '/ssop/db.sqlite3'
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': DATABASENAME,
+#    }
+#}
+
+DATABASENAME = 'ssop_dev'
+DATABASEUSERNAME = 'ucanreadwrite'
+DATABASEMIGRATIONUSERNAME = 'kirkholub'
+
+DBPWD = get_secret('DATABASE_SECRET')
+MIGRATIONPWD = get_secret('MIGRATION_SECRET')
+
+# For initial setup
+DATABASEUSERNAME = DATABASEMIGRATIONUSERNAME
+DBPWD = MIGRATIONPWD
+
+# https://www.laurencegellert.com/2019/03/making-djangos-database-connection-more-secure-for-migrations/
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
         'NAME': DATABASENAME,
+        'HOST': 'localhost',
+        'USER': DATABASEUSERNAME,
+        'PASSWORD': DBPWD,
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_ALL_TABLES'",
+            'auth_plugin': 'mysql_native_password',
+            'isolation_level': 'repeatable read'
+        },
+    },
+    'default_with_migration_rights': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': DATABASENAME,
+        'HOST': 'localhost',
+        'USER': DATABASEMIGRATIONUSERNAME,
+        'PASSWORD': MIGRATIONPWD,
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_ALL_TABLES'",
+            'auth_plugin': 'mysql_native_password',
+            'isolation_level': 'repeatable read'
+        },
     }
 }
-
+DBDUMP_ROOT = '/home/gslauth/ssopdump/'
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
@@ -286,6 +404,9 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = '/usr/share/nginx/html/static/'
 
+MEDIA_ROOT = 'uploads/'
+MEDIA_URL = '/uploads/'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
@@ -299,11 +420,11 @@ LOGINDOTGOV_CLIENT_ID = 'urn:gov:gsa:openidconnect.profiles:sp:sso:noaa_oar:ssop
 LOGINDOTGOV_ACR = 'http://idmanagement.gov/ns/assurance/ial/2'
 LOGINDOTGOV_CLIENT_ASSERTION_TYPE = 'urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer'
 LOGINDOTGOV_SCOPE = 'openid+email+profile+first_name+last_name'
-LOGINDOTGOV_RETURN_TO = 'https://gsl.noaa.gov/ssop/ldg_authenticated'
-#LOGINDOTGOV_AUTHENTICATED_REDIRECT = 'https://gsl.noaa.gov/ssop/static/test.html'
-#LOGINDOTGOV_AUTHENTICATED_REDIRECT2 = 'https://gsl.noaa.gov/ssop/static/test2.html'
-LOGINDOTGOV_ERROR_REDIRECT = 'https://gsl.noaa.gov/ssop/oops'
-LOGINDOTGOV_LOGOUT_URI = 'https://gsl.noaa.gov/ssop/sites'
+LOGINDOTGOV_RETURN_TO = 'https://gsl.noaa.gov/ssopsb/ldg_authenticated'
+LOGINDOTGOV_ERROR_REDIRECT = 'https://gsl.noaa.gov/ssopsb/oops'
+LOGINDOTGOV_LOGOUT_URI = 'https://gsl.noaa.gov/ssopsb/sites'
+LDG_BASE  = 'https://gsl.noaa.gov/ssopsb/'
+LDG_POSTFIX  = '/'
 
 # A known parameter return on auth sucess .... can be whatever we want as long as its > 22 chars
 LOGINDOTGOV_LOGIN_STATE = '2.7182818284590452353602874'
@@ -311,6 +432,8 @@ LOGINDOTGOV_LOGOUT_STATE = '1.618033988749894848204586'
 with open(os.path.join(BASE_DIR, 'logindotgov/certs/private.pem')) as privcert:
     LOGINDOTGOV_PRIVATE_CERT = privcert.read()
 
+PROJECTS_PREFIX = '/ssopsb/static/projects/'
+PROJECTS_POSTFIX = '/logo'
 # JWT verification -- using GSL's LetsEncrypt certs
 JWT_BASE_DIR = '/etc/pki/tls/private/gsl-webstage8.gsd.esrl.noaa.gov.'
 certfile = JWT_BASE_DIR + 'pem'
@@ -328,6 +451,9 @@ JWTSAFELEN = 30
 # JWT expiration time in seconds -- will be added to current UTC
 JWTEXP = 300
 
+# Length of a production key -- to aid in deployments
+PRODKEYLEN = 60
+
 # Attributes one-time access token lifetime in seconds
 ATTRS_ACCESS_TOKEN_LIFETIME = JWTEXP
 DATA_AT_REST_KEY_ATTRS = get_secret('DATA_AT_REST_KEY_ATTRS')
@@ -336,6 +462,9 @@ DATA_AT_REST_KEY_ATTRS = get_secret('DATA_AT_REST_KEY_ATTRS')
 NODE_TYPE_CHOICES = ['AllConnections', 'Attribute', 'AttributeGroup', 'Browser', 'Organization', 'Project', 'Uniqueuser', 'Conngroup', 'Namegroup']
 # If true, [nodenumber] will we prepended to each node label
 LABELNODES = False
+
+# supported logo image types
+LOGO_FILETYPES = ['png', 'jpg', 'jpeg']
 
 HELP_NAME = "A simple, urlsafe (no spaces or special characters) name for this project and its login url."
 HELP_VERBOSE_NAME = "A longer name which does not have to be urlsafe (no spaces or special characters) for this project used for login urls.  It will be set to the project name if 'newproject' remains in the field."

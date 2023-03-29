@@ -14,15 +14,15 @@
     </div>
     <div>
       <hr>
-      <p>Skip the login part and just show me the demo <a target="_blank" href="https://gsl.noaa.gov/ssop/examples/demoapp_python.txt">python</a> or 
-      <a target="_blank" href="https://gsl.noaa.gov/ssop/examples/demoajax.txt">ajax</a> source code.
+      <p>Skip the login part and just show me the demo <a target="_blank" href="https://gsl.noaa.gov/ssopsb/examples/demopython.txt">python</a> or 
+      <a target="_blank" href="https://gsl.noaa.gov/ssopsb/examples/demoajax.txt">ajax</a> source code.
     </div>
   {% endif %}
 
   {% if showplots %}
   <hr><hr>
-  <a target="_blank" href="/ssop/static/graphs/cbp.jpeg">
-   <img border="5" alt="A directed graph of connections between all projects, unique users, and web browsers" src="/ssop/static/graphs/cbp.jpeg">
+  <a target="_blank" href="/ssopsb/static/graphs/cbp.jpeg">
+   <img border="5" alt="A directed graph of connections between all projects, unique users, and web browsers" src="/ssopsb/static/graphs/cbp.jpeg">
   </a>
   <b>Connections to all Pojects and Unique Users</b> 
   <hr>
@@ -30,8 +30,8 @@
    <div class="wrapper ">
       {% for attr in attributes %}
         <div class="box {{attr.0}}">
-          <a target="_blank" href="/ssop/static/graphs/{{attr.0}}.jpeg">
-          <img alt="A directed graph of connections between unique users and web browsers for project {{attr.0}}" src="/ssop/static/graphs/{{attr.0}}.jpeg">
+          <a target="_blank" href="/ssopsb/static/graphs/{{attr.0}}.jpeg">
+          <img alt="A directed graph of connections between unique users and web browsers for project {{attr.0}}" src="/ssopsb/static/graphs/{{attr.0}}.jpeg">
           </a>
           <hr>Connections to {{attr.0}}
         </div>

@@ -1,21 +1,225 @@
 from django.db import models
+from django.apps import apps
+from django.contrib.auth.models import User, Group, Permission
+from django.contrib.contenttypes.models import ContentType
 from django.utils.timezone import now
 from django.utils.safestring import mark_safe
 from hashlib import md5
 from cryptography.fernet import Fernet
 from cryptography.exceptions import InvalidSignature
 import base64
+from django_auth_saml.backend import user_has_authenticated, user_login_failure
+from django.core.exceptions import SuspiciousFileOperation
+from django_contrib_auth.backends import local_user_has_authenticated, local_user_cannot_authenticate, local_user_password_rejected
+from django.dispatch import receiver, Signal
 
 import ast
 import datetime
+import hashlib
 import pytz
+import random
 import secrets
 import logging
+import os
 import pprint
+import subprocess
+import sys
+import time
 
 logger = logging.getLogger('ssop.models')
 
 from ssop import settings
+
+user_logged_out = Signal()
+
+def runcmdl(cmdl, execute):
+    """
+    prints cmdl or passes it to subprocess.run if execute is True
+    returns status, result as strings
+    """
+
+    cmd = " ".join(cmdl)
+    status = int(-1)
+    result = "execute = " + str(execute) 
+    if 'true' in str(execute).lower():
+        try:
+            instance = subprocess.run(cmdl, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            status = instance.returncode
+            if status != int(0):
+                result = instance.stderr.decode()
+                raise OSError
+            result = instance.stdout.decode()
+        except OSError as e:
+            result = "exception: " + str(e) + ", result = " + str(result)
+    return status, result
+
+
+def get_or_add_sysadmin(user, creator, homeorg, orglist):
+    try:
+        uqs = User.objects.filter(email=user.email)
+        if uqs.count() == 0:
+            user = uqs[0]
+
+        sa = Sysadmin.objects.filter(username__email=user.email)
+        if sa.count() == 0:
+            sa = Sysadmin(username=user, creator=creator)
+            sa.save()
+        else:
+            sa = sa[0]
+
+        for orgname in orglist:
+            thisorg = get_or_add_organization_by_name(orgname)
+            sa.organizations.add(thisorg)
+
+        horg = get_or_add_organization_by_name(homeorg)
+        sa.organization = horg
+        sa.organizations.add(horg)
+        sa.save()
+    except UserWarning as e:
+        now = datetime.datetime.utcnow()
+        msg = str(now) + ":UserWarning:" + str(user.email) + ":e = " + str(e)
+        logger.info(msg)
+
+def add_sysadmins(creator):
+
+    # Start from an initialized database or run command 'clean_system' and then manually run the sql commands
+    # to insure auto increment for organization table has been reset
+    # mysql -u 'username' -p ...
+    # use 'the_proper_database_name'
+    # alter table provision_organization auto_increment=1;
+
+    # Need none Organization
+    orgname = settings.NONE_NAME
+    thisorg = get_or_add_organization_by_name(orgname)
+    now = datetime.datetime.utcnow()
+    allusers = User.objects.all()
+    for username in settings.SSOP_SYSADS.keys():
+        homeorg = settings.SSOP_SYSADS[username]['homeorg']
+        orglist = settings.SSOP_SYSADS[username]['divisions']
+        orglist.append(settings.NONE_NAME)
+        usertype = settings.SSOP_SYSADS[username]['type']
+        splitname = str(username).split('.')
+        firstname = splitname[0].capitalize()
+        lastname = splitname[len(splitname) - 1].capitalize()
+
+        if str(usertype) == 'icam':
+            email = username + '@noaa.gov'
+        else:
+            email = settings.SSOP_SYSADS[username]['email']
+        email = str(email).lower()
+
+        user = ''
+        need_to_create = True
+        for u in allusers:
+            uemail = str(u.email).lower()
+            if email in uemail:
+                user = u
+                need_to_create = False
+
+                now = datetime.datetime.utcnow()
+                break
+
+        now = datetime.datetime.utcnow()
+        if need_to_create:
+            user = User.objects.create_user(username=username, email=email, is_staff=True,
+                                            first_name=firstname, last_name=lastname)
+            user.save()
+
+        if str(usertype) != 'local' and str(usertype) != 'superuser' and str(usertype) != 'localdev':
+            minlen = settings.LOCAL_PASSWORD_MINIMUM_LENGTH
+            maxlen = 2 * minlen
+            user.set_password(secrets.token_urlsafe(random.randint(minlen, maxlen)))
+            user.save()
+        elif str(usertype) == 'localdev':
+            if need_to_create:
+                password = secrets.token_urlsafe(random.randint(6, 8))
+                user.set_password(password)
+                user.save()
+
+                subject = "creds"
+                body = str(password)
+                fromaddr = settings.EMAIL_HOST_USER
+                toaddr = [email]
+                try:
+                    send_mail(subject, body, fromaddr, toaddr, fail_silently=False)
+                except SMTPException as e:
+                    msg = str(now) + ":Send password failed:" + str(username) + ":" + creator
+                    logger.info(msg)
+
+            groupnames = ['cn=_OAR ESRL GSL Sysadm,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov',
+                          'cn=_OAR ESRL GSL All Personnel,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov']
+            now = datetime.datetime.utcnow()
+            try:
+                for group in groupnames:
+                    newgroup = Group.objects.get(name=group)
+                    user.groups.add(newgroup)
+                user.save()
+            except Group.DoesNotExist as e:
+                msg = str(now) + ":" + str(e) + ':' + str(username) + ":" + creator
+                logger.info(msg)
+        get_or_add_sysadmin(user, creator, homeorg, orglist)
+
+        # pause a moment to allow objects to created (Organizations were being duplicated)
+        naptime = 1
+        time.sleep(naptime)
+
+def add_groups_and_permissions(creator):
+
+    perms = ['add', 'change', 'delete', 'view']
+    for groupname in settings.AUTH_SAML_GROUPS.keys():
+        groupname = str(groupname)
+
+        now = datetime.datetime.utcnow()
+        try:
+            group = Group.objects.get(name=groupname)
+            group.permissions.clear()
+        except Group.DoesNotExist as e:
+            group = Group.objects.create(name=groupname)
+            group.save()
+
+        for mname in settings.AUTH_SAML_GROUPS[groupname]['modelslist']:
+            try:
+                model = apps.get_model('sites', mname)
+            except LookupError:
+                model = None
+
+            if model is None:
+                try:
+                    model = apps.get_model('auth', mname)
+                except LookupError:
+                    model = "not_found_in_sites_or_auth"
+
+            ct = ContentType.objects.get_for_model(model)
+            for p in perms:
+                cn = p + '_' + model._meta.model_name
+                permission = Permission.objects.get(codename=cn, content_type=ct)
+                group.permissions.add(permission)
+
+        for mname in settings.AUTH_SAML_GROUPS[groupname]['viewmodels']:
+            model = apps.get_model('sites', mname)
+            ct = ContentType.objects.get_for_model(model)
+            cn = 'view_' + model._meta.model_name
+            permission = Permission.objects.get(codename=cn, content_type=ct)
+            group.permissions.add(permission)
+
+        group.save()
+        now = datetime.datetime.utcnow()
+        msg = str(now) + ":GroupobjectAddedPerms:" + groupname + ":" + creator
+        logger.info(msg)
+
+def hash_to_fingerprint(data):
+    dkeys = []
+    for k in data.keys():
+        dkeys.append(k)
+    if len(dkeys) > int(0):
+        dkeys.sort()
+
+    dstring = ''
+    for k in dkeys:
+        dstring = data[k] + ':' + dstring
+    dstring = dstring.encode()
+    fp = md5(dstring).hexdigest()
+    return fp
 
 def bytes_in_string(b):
         return str(b)[2:-1]
@@ -33,17 +237,24 @@ def get_attributesFromFp(fp):
     return str(attrs)
 
 def get_or_add_organization_by_name(name):
-    #name = organization["name"]
     qs = Organization.objects.filter(name=name)
     if qs.count() < int(1):
-        #contact = organization["contact"]
-        #email = organization["email"]
-        #no = Organization(name=name, contact=contact, email=email)
-        no = Organization(name=name)
-        no.save()
+        org = Organization(name=name)
+        org.save()
     else:
-        no = qs[0]
-    return no
+        org = qs[0]
+    return org
+
+def get_or_add_decrypt_key(keyname=None):
+    key = None
+    if keyname is not None:
+        qs = Key.objects.filter(name=keyname)
+        if qs.count() == int(1):
+            key = qs[0]
+    if key is None:
+        key = Key()
+        key.save()
+    return key
 
 def get_or_add_project(project):
     name = project["name"]
@@ -56,14 +267,85 @@ def get_or_add_project(project):
         og = project["organization"]
         rt = project["return_to"]
         er = project["error_redirect"]
+        keyname = project["decrypt_key"]
         org = get_or_add_organization_by_name(og)
-        key = Key()
-        key.save()
+        key = get_or_add_decrypt_key(keyname)
         np = Project(name=name, display_order=do, queryparam=qp, enabled=en, verbose_name=vn, organization=org, return_to=rt, error_redirect=er, decrypt_key=key)
         np.save()
     else:
         np = qs[0]
     return np
+
+def get_upload_path(self, filename):
+    return str(filename)
+
+def clean_authtokens():
+    for token in AuthToken.objects.all():
+        value = token.get_token()
+
+
+class About(models.Model):
+    """
+    Info about SSOP Sandbox 
+    """
+    Version = models.CharField(max_length=50, null=True, default='version', verbose_name='Version')
+    Requirements = models.TextField(max_length=2000, null=True, default='requirements', verbose_name='Requirements')
+    updated = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'About'
+        verbose_name_plural = 'About'
+
+    def __str__(self):
+        return self.Version
+
+    def get_fields(self):
+        return [(field.name, getattr(self,field.name)) for field in About._meta.fields]
+
+    def version(self):
+        return str(self.Version)
+
+    def requirements(self):
+        return self.Requirements
+
+    def updated_mst(self):
+        when = str(self.updated).split('.')
+        when = when[0]
+        when = datetime.datetime.strptime(when, '%Y-%m-%d %H:%M:%S')
+        return str(when)
+
+    def initstate(self):
+        needtoupdate = True 
+        msg = "     about initstat: " + str(self.version())
+        logger.info(msg)
+        if self.version() not in settings.SSOPSB_VERSION:
+            needtoupdate = True
+            self.Version = settings.SSOPSB_VERSION
+
+            cmdl = ['pip', 'list']
+            status, result = runcmdl(cmdl, True)
+            req = ''
+            if status == int(0):
+                for item in result.split('\n'):
+                    if 'Package' not in item and '---' not in item and len(item) > int(1):
+                        req = req + str(item) + ',\n'
+                if len(req) > int(2):
+                    self.Requirements = req[:-2]
+            else:
+                msg = 'status not 0 running ' + str(cmdl)
+                logger.info(msg)
+        else:
+            needtoupdate = False 
+
+        msg = "     needtoupdate: " + str(needtoupdate)
+        logger.info(msg)
+        return needtoupdate
+
+    def save(self, *args, **kwargs):
+        super(About, self).save(*args, **kwargs)
+        if self.initstate():
+            super(About, self).save(*args, **kwargs)
+
 
 class Project(models.Model):
     name = models.CharField(max_length=150, default='newproject', help_text=mark_safe(settings.HELP_NAME))
@@ -80,6 +362,8 @@ class Project(models.Model):
     expiretokens = models.BooleanField(default=False, help_text=mark_safe(settings.HELP_EXPIRETOKENS))
     display_order = models.IntegerField(default=0, help_text=mark_safe(settings.HELP_DISPLAY_ORDER))
     graphnode = models.ForeignKey('sites.GraphNode', null=True, blank=True, on_delete=models.SET_NULL)
+    logoimg = models.ImageField(upload_to = get_upload_path, null=True, blank=True)
+    logobin = models.BinaryField(null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -116,12 +400,62 @@ class Project(models.Model):
             self.graphnode = gn
             need_to_save = True 
 
-        if need_to_save:
-            self.save()
+        if self.logoimg is not None:
+            pdir = settings.STATIC_ROOT + 'projects/' + str(self.name)
+            if not os.path.exists(pdir):
+                os.makedirs(pdir)
+            destination_filename = pdir + '/logo'
+
+            filetype = None
+            try:
+                imgpath = self.logoimg.path
+            except ValueError as ve:
+                imgpath = '   ve: ' + str(ve)
+            except SuspiciousFileOperation as sfo:
+                imgpath = '   sfo: ' + str(sfo)
+            msg = "   imgpath is: " + str(imgpath)
+            logger.info(msg)
+            for ft in settings.LOGO_FILETYPES:
+                if str(imgpath).endswith(ft):
+                    filetype = ft
+                    break
+            msg = "   filetype is: " + str(filetype)
+            logger.info(msg)
+            if filetype:
+                if os.path.exists(imgpath):
+                    os.rename(imgpath, destination_filename)
+                    fp = open(destination_filename, 'rb')
+                    self.logobin = fp.read()
+                    fp.close()
+
+            need_to_save = True 
+
+        # Add the file from the DB if it does not exist
+        #msg = "      self.get_logo() is currently: " + str(self.get_logo())
+        #logger.info(msg)
+        #if logostr is not None:
+        #    msg = "      logostr is: " + logostr 
+        #    logger.info(msg)
+        #    if self.get_logobin() is not None:
+        #       filepath = pdir + '/' + filename
+        #       msg = "          filepath is: " + filepath
+        #       logger.info(msg)
+        #       if not os.path.exists(filepath):
+        #           fp = open(filepath, 'wb')
+        #           fp.write(self.get_logobin())
+        #           fp.close()
+        #           self.logo = filepath
+        #           need_to_save = True 
+        #    else:
+        #       msg = "          self.get_logobin() is " + str(self.get_logobin())
+        #       logger.info(msg)
+
+        return need_to_save
 
     def save(self, *args, **kwargs):
         super(Project, self).save(*args, **kwargs)
-        self.initstate()
+        if self.initstate():
+            super(Project, self).save(*args, **kwargs)
 
     def get_returnto(self):
         return self.return_to
@@ -159,12 +493,23 @@ class Project(models.Model):
     def get_fields(self):
         return [(field.name, getattr(self,field.name)) for field in Project._meta.fields]
 
+    def get_logo(self):
+        return self.logo
+
+    def showlogobin(self):
+        blen = int(0)
+        if self.get_logobin() is not None:
+            blen = len(self.get_logobin())
+        return str(blen) + ' chars'
+
+    def get_logobin(self):
+        return self.logobin
 
 class Attributes(models.Model):
     fingerprint = models.CharField(max_length=150, default='setme')
     decodedfingerprint = models.CharField(max_length=150, default='setme')
     attrs = models.TextField(default='')
-    decodedattrs = models.TextField(default='setme')
+    decodedattrs = models.TextField(default='showme')
     #graphnode = models.ForeignKey('sites.GraphNode', null=True, blank=True, on_delete=models.SET_NULL)
 
     class Meta:
@@ -172,6 +517,18 @@ class Attributes(models.Model):
 
     def __str__(self):
         return self.fingerprint
+
+    def get_fields(self):
+        retlist =  []
+        for field in Attributes._meta.fields:
+            k = field.name
+            v = getattr(self,field.name)
+            if v is None:
+                v = "None"
+            if str(k) == 'updated':
+                v = str(v)
+            retlist.append((k,v))
+        return retlist
 
     #def graph_node_id(self):
     #    nid = str(-1)
@@ -184,12 +541,15 @@ class Attributes(models.Model):
         if 'setme' in str(self.fingerprint):
             attrs = self.get_attributes()
             self.fingerprint = md5(attrs).hexdigest()
+            need_to_save = True 
+
+        if 'showme' in str(self.decodedattrs):
             if settings.DEBUG:
                 fernet = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
-                self.decodedattrs = fernet.decrypt(self.attrs).decode()
+                attrs = bytes_in_string(self.get_attributes())
+                self.decodedattrs = fernet.decrypt(attrs).decode()
             else:
                 self.decodedattrs = "Decoded attributes not available."
-            self.save()
             need_to_save = True 
         #if int(self.graph_node_id()) < int(0):
         #    nt = NodeType.objects.filter(type='Attribute').first()
@@ -199,12 +559,10 @@ class Attributes(models.Model):
         #    need_to_save = True
         return need_to_save 
 
-
     def save(self, *args, **kwargs):
         super(Attributes, self).save(*args, **kwargs)
         if self.initstate():
             super(Attributes, self).save(*args, **kwargs)
-
 
     def get_attributes(self):
         return self.attrs
@@ -254,16 +612,19 @@ class AuthToken(models.Model):
 
 class Connection(models.Model):
     name = models.CharField(max_length=150, default='setme')
-    project = models.ForeignKey(Project, null=True, blank=True, on_delete=models.CASCADE)
+    project = models.ForeignKey(Project, null=True, blank=True, on_delete=models.SET_NULL)
     attrsgroup = models.ForeignKey('sites.AttributeGroup', null=True, blank=True, on_delete=models.CASCADE, related_name='sites_Connection_attrsgroup')
     uniqueuser = models.ForeignKey('sites.Uniqueuser', null=True, blank=True, on_delete=models.CASCADE, related_name='sites_Connection_uniqueuser', verbose_name='Unique User')
-    token = models.ForeignKey(AuthToken, null=True, blank=True, on_delete=models.CASCADE)
+    token = models.ForeignKey(AuthToken, null=True, blank=True, on_delete=models.SET_NULL)
     connection_state = models.CharField(max_length=50, null=True, default='setme', help_text=mark_safe(settings.HELP_CONNECTION_STATE))
     created = models.DateTimeField(auto_now_add=True)
     loggedout = models.DateTimeField(default=now)
 
     def __str__(self):
         return str(self.project) + ' - ' + str(self.created)
+
+    def get_fields(self):
+        return [(field.name, getattr(self,field.name)) for field in Connection._meta.fields]
 
     def initstate(self):
         need_to_save = False
@@ -298,64 +659,47 @@ class Connection(models.Model):
 
     def get_request_attributes(self):
         attributes = []
-        #requestattrs = ast.literal_eval(self.requestttrs.get_attributes())
-        #attributes.append(('requestattrs: ', str(requestattrs)))
         ca = self.get_ca() 
         attributes.append(('requestattrs: ', str(ca)))
         return attributes
 
     def get_ua(self):
-        ua = {}
+        ua = [] 
         for a in self.uniqueuser.get_attributes():
-            attrs = a.get_attributes()
-            if len(str(attrs)) > int(9) and str(attrs).startswith('{'):   # minimum str(attrs) == '{"k":"v"}'
-                at = ast.literal_eval(a.get_attributes())
-                for k in at.keys(): 
-                    ua[k] = at[k]
-            else:
-                ua['simplestring'] = attrs
-            neua = str(ua).encode()
-            self.fingerprint = md5(neua).hexdigest()
+            ua.append(a.get_attributes())
         return ua
 
     def get_user_attributes(self):
         attributes = []
-        #userattrs = ast.literal_eval(self.userattrs.get_attributes())
-        #attributes.append(('user_attributes', str(userattrs)))
-        ua = self.get_ua()
-        attributes.append(('user_attributes', str(ua)))
+        for ua in self.get_ua():
+            attributes.append(ua)
         return attributes
 
-    def show_user_attributes(self):
-        fernet = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
-        ua = self.get_ua()
-        dataatrest = bytes_in_string(ua['simplestring'])
-        decoded_attrs = fernet.decrypt(dataatrest).decode()
-
+    def clear_user_attributes(self):
         attributes = []
-        ale = ast.literal_eval(decoded_attrs)
-        msg = "  show_user_attributes ale: " + str(ale)
-        logger.info(msg)
+        for ua in self.get_ua():
+            ua.attrs = None
+            ua.save()
+   
+    def show_user_attributes(self):
+        attributes = []
+        fernet = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
+        for ua in self.get_ua():
+            dataatrest = bytes_in_string(ua)
+            decoded_attrs = fernet.decrypt(dataatrest).decode()
 
-        for k in ale.keys():
-            attributes.append((str(k), ale[k]))
-        attributes.append(('data at rest', str(attributes)))
+            ale = ast.literal_eval(decoded_attrs)
+            for k in ale.keys():
+                attributes.append((str(k), ale[k]))
         return attributes
 
     def show_request_attributes(self):
         fernet = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
-        #attrs = ast.literal_eval(self.requestattrs.get_attributes())
-        #decoded_attrs = fernet.decrypt(attrs).decode()
         ca = self.get_ca() 
         decoded_attrs = fernet.decrypt(ca).decode()
-        #msg = "  decoded_attrs: " + str(decoded_attrs)
-        #logger.info(msg)
 
         attributes = []
         ale = ast.literal_eval(decoded_attrs)
-        #msg = "  ale: " + str(ale)
-        #logger.info(msg)
-
         for k in ale.keys():
             attributes.append((str(k), str(ale[k])))
         attributes.append(('data at rest', str(attrs)))
@@ -365,17 +709,19 @@ class Connection(models.Model):
 class Uniqueuser(models.Model):
     name = models.CharField(max_length=150, default='setme')
     fingerprint = models.CharField(max_length=150, default='setme')
-    connfingerprint = models.CharField(max_length=150, default='setme')
     nameattrsgroup = models.ForeignKey('sites.AttributeGroup', null=True, blank=True, on_delete=models.CASCADE, related_name='Uniqueuser_nameattrsgroup')
-    connattrsgroup = models.ForeignKey('sites.AttributeGroup', null=True, blank=True, on_delete=models.CASCADE, related_name='Uniqueuser_connattrsgroup')
-    decodedallattrs = models.TextField(default='setme')
-    decodednameattrs = models.TextField(default='setme')
-    decodedconnattrs = models.TextField(default='setme')
+    connattrsgroups = models.ManyToManyField('sites.AttributeGroup', related_name='uniqueuser_connattrsgroups')
+    decodedallattrs = models.TextField(default='showme')
+    decodednameattrs = models.TextField(default='showme')
+    decodedconnattrs = models.TextField(default='showme')
     created = models.DateTimeField(auto_now_add=True)
     graphnode = models.ForeignKey('sites.GraphNode', null=True, blank=True, on_delete=models.SET_NULL)
 
     class Meta:
         verbose_name = "Unique User"
+
+    def get_fields(self):
+        return [(field.name, getattr(self,field.name)) for field in Uniqueuser._meta.fields]
 
     def __str__(self):
         return self.name
@@ -403,7 +749,7 @@ class Uniqueuser(models.Model):
                 self.graphnode = gn
             need_to_save = True 
 
-        if 'setme' in self.get_fingerprint() or 'setme' in str(self.clearallattrs()):
+        if 'setme' in self.get_fingerprint() or 'showme' in str(self.clearallattrs()):
             da = {}
             uu = {} 
             if self.nameattrsgroup is not None:
@@ -419,39 +765,62 @@ class Uniqueuser(models.Model):
                         #da['simplestring'] = []
                         da['simplestring'] = attrs
                 if settings.DEBUG:
-                    self.decodedallattrs = da
-                    self.decodednameattrs = uu 
+                    self.decodedallattrs = str(da)
+                    self.decodednameattrs = str(uu)
                 else:
                     self.decodedattrs = "Decoded attributes not available."
                     self.decodednameattrs = "Decoded attributes not available."
+            
+            try:
+                if len(da['simplestring']) > int(0):
+                    da['simplestring'].sort()
+            except KeyError:
+                pass
 
             msg = "    initstate uu: " + str(uu)
             logger.info(msg)
-            enuu = str(uu).encode()
-            msg = "    initstate enuu: " + str(enuu)
-            logger.info(msg)
-            self.fingerprint = md5(enuu).hexdigest()
+            self.fingerprint = hash_to_fingerprint(uu)
             msg = "    self.fingerprint: " + str(self.fingerprint)
             logger.info(msg)
             need_to_save = True 
 
-        if 'setme' in self.get_connfingerprint() or 'setme' in str(self.clearconnattrs()):
+        if 'showme' in str(self.clearconnattrs()):
             ca = {} 
-            ca['simplestring'] = [] 
-            if self.connattrsgroup is not None:
-                for fp in self.connattrsgroup.get_attrs():
-                    attrs = get_attributesFromFp(str(fp))
-                    if len(str(attrs)) > int(9) and str(attrs).startswith('{'):   # minimum str(ca) == '{"k":"v"}'
-                        at = ast.literal_eval(attrs)
-                        for k in at.keys(): 
-                            ca[k] = at[k]
-                    else:
-                        ca['simplestring'].append(attrs)
+            if self.connattrsgroups is not None:
+                for ag in self.connattrsgroups.get_queryset():
+                    for fp in ag.get_attrs():
+                        attrs = get_attributesFromFp(str(fp))
+                        if len(str(attrs)) > int(9) and str(attrs).startswith('{'):   # minimum str(ca) == '{"k":"v"}'
+                            at = ast.literal_eval(attrs)
+                            for k in at.keys(): 
+                                ca[k] = at[k]
+                        else:
+                            try:
+                                test = ca['simplestring']
+                            except KeyError:
+                                ca['simplestring'] = []
+                            ca['simplestring'].append(str(attrs))
                 if settings.DEBUG:
-                    self.decodedconnattrs = ca
-            enca = str(ca).encode()
-            self.connfingerprint = md5(enca).hexdigest()
+                    self.decodedconnattrs = str(ca)
+                else:
+                    self.decodedconnattrs = "Decoded attributes not available."
+
+            castr = ':'
+            try:
+                if len(ca) > int(1):
+                    allkeys = []
+                    for k in ca.keys():
+                        allkeys.append(k)
+                    if len(allkeys) > int(1):
+                        allkeys.sort()
+                    castr = ':'
+                    for k in allkeys:
+                        castr = str(k) + astr
+            except KeyError:
+                pass
+            enca = str(castr).encode()
             need_to_save = True 
+
         return need_to_save
 
     def save(self, *args, **kwargs):
@@ -461,9 +830,6 @@ class Uniqueuser(models.Model):
 
     def get_fingerprint(self):
         return str(self.fingerprint)
-
-    def get_connfingerprint(self):
-        return str(self.connfingerprint)
 
     def get_attributes(self):
         attrs = {}
@@ -491,13 +857,32 @@ class Uniqueuser(models.Model):
         return str(at)
 
     def connattributes(self):
-        at = ['none']
-        if self.connattrsgroup is not None:
-          if self.connattrsgroup is not None:
-              at = []
-              for a in self.connattrsgroup.attrs.get_queryset():
-                 at.append(str(a))
+        at = [(None, ['none'])]
+        if self.connattrsgroups is not None:
+            at = []
+            for ag in self.connattrsgroups.get_queryset():
+                alist = []
+                for a in ag.attrs.get_queryset():
+                    alist.append(str(a))
+                at.append((str(ag), str(alist)))
         return str(at)
+
+
+class OrganizationNode(models.Model):
+    parent = models.ForeignKey('sites.Organization', null=True, blank=True, on_delete=models.CASCADE, related_name='organization_parent')
+    child = models.ForeignKey('sites.Organization', null=True, blank=True, on_delete=models.CASCADE, related_name='organization_child')
+
+    def __str__(self):
+        return str(self.parent) + " has " + str(self.child)
+
+    def name(self):
+        return str(self.parent)
+
+    def leaf(self):
+        return str(self.child)
+
+    def get_fields(self):
+        return [(field.name, getattr(self,field.name)) for field in OrganizationNode._meta.fields]
 
 
 class Organization(models.Model):
@@ -507,6 +892,10 @@ class Organization(models.Model):
     projects = models.ManyToManyField(Project, related_name='orgs_projects')
     updated = models.DateTimeField(auto_now_add=True)
     graphnode = models.ForeignKey('sites.GraphNode', null=True, blank=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        verbose_name = 'Organization'
+        verbose_name_plural = 'Organization'
 
     def __str__(self):
         return str(self.name)
@@ -554,7 +943,6 @@ class Organization(models.Model):
             if str(k) == 'updated':
                 v = str(v)
             retlist.append((k,v))
-            retlist.append((k,v))
         return retlist
 
 
@@ -562,11 +950,24 @@ class AttributeGroup(models.Model):
     name = models.CharField(max_length=150, default='setme')
     grouptype = models.ForeignKey('sites.NodeType', null=True, blank=True, on_delete=models.CASCADE)
     attrs = models.ManyToManyField(Attributes, related_name='AttributeGroup_attrs', verbose_name='Attrs')
-    #decodedattrs = models.TextField(default='setme')
+    decodedattrs = models.TextField(default='showme')
     #graphnode = models.ForeignKey('sites.GraphNode', null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return self.name
+
+    def get_fields(self):
+        retlist =  []
+        for field in AttributeGroup._meta.fields:
+            k = field.name
+            v = getattr(self,field.name)
+            if v is None:
+                v = "None"
+            if str(k) == 'updated':
+                v = str(v)
+            retlist.append((k,v))
+        return retlist
+
 
     #def graph_node_id(self):
     #    nid = str(-1)
@@ -586,16 +987,16 @@ class AttributeGroup(models.Model):
             #    self.graphnode = gn
             need_to_save = True
 
-        #if 'setme' in self.decodedattrs:
-        #    if self.attrs is not None:
-        #        dattrs = "Decoded attributes not available."
-        #        if settings.DEBUG:
-        #            dattrs = ''
-        #            for a in self.attrs:
-        #                dattrs = dattrs + a.clearattrs() + ', '
-        #            dattrs = dattrs[:-2]
-        #        self.decodedattrs = dattrs
-        #        need_to_save = True
+        if 'showme' in self.decodedattrs:
+            if self.attrs is not None:
+                dattrs = "Decoded attributes not available."
+                if settings.DEBUG:
+                    dattrs = ''
+                    for a in self.get_attrs():
+                        dattrs = dattrs + a.clearattrs() + ', '
+                    dattrs = dattrs[:-2]
+                self.decodedattrs = dattrs
+                need_to_save = True
         return need_to_save
 
     def save(self, *args, **kwargs):
@@ -608,7 +1009,7 @@ class AttributeGroup(models.Model):
 
     def attributes(self):
         msg = ''
-        for a in self.attrs.get_queryset():
+        for a in self.get_attrs():
             msg = msg + str(a) + ', '
         if msg.endswith(', '):
             msg =  msg[:-2]
@@ -676,6 +1077,9 @@ class Browser(models.Model):
     def __str__(self):
         return str(self.name)
 
+    def get_fields(self):
+        return [(field.name, getattr(self,field.name)) for field in Browser._meta.fields]
+
     def get_os(self):
         return str(self.os)
 
@@ -724,4 +1128,184 @@ class Key(models.Model):
         if self.initstate():
            super(Key, self).save(*args, **kwargs)
 
+
+def email_from_ICAM_groupname(groupname):
+    groupname = str(groupname).split(',')[0]
+    if "=" in str(groupname):
+        groupname = groupname.split('=')[1]
+    email = None
+    qr = GSL_ICAM_group.objects.filter(name=groupname)
+    if qr.count() == int(1):
+        email = str(qr[0].email)
+
+    if email is None:
+        email = "none.its"
+        groupname = groupname.replace('ESRL ', '')
+        qr = GSL_ICAM_group.objects.filter(name=groupname)
+        if qr.count() == int(1):
+            email = str(qr[0].email)
+    return email
+
+def is_user_a_sysad(**kwargs):
+    user = kwargs['user']
+
+    try:
+        homeorg = kwargs['request'].session['samlUserdata']['LineOffice'][0]
+    except KeyError:
+        homeorg = None
+
+    orglist = [] 
+    orglist.append(settings.NONE_NAME)
+    orglist.append('NOAA')
+    orglist.append(str(homeorg))
+
+    oukeylist = []
+    keys = kwargs['request'].session['samlUserdata'].keys()
+    for k in kwargs['request'].session['samlUserdata'].keys():
+        if str(k).startswith('ou'):
+            oukeylist.append(str(k))
+    if len(oukeylist) > int(1):
+        oukeylist.sort()
+    for k in oukeylist:
+        orglist.append(kwargs['request'].session['samlUserdata'][str(k)][0])
+    creator = "is_user_a_sysad"
+    get_or_add_sysadmin(user, creator, homeorg, orglist)
+
+class Sysadmin(models.Model):
+    """
+    A system administrator belongs to one or more organizations, one of which is designated as their primary.
+    An administrator maybe designated as a superuser, with full administrative privileges
+    """
+    username = models.OneToOneField(User, null=True, on_delete=models.CASCADE)
+    organizations = models.ManyToManyField('Organization', verbose_name='Organizations')
+    organization = models.ForeignKey('Organization', default=1, related_name='sysadmin_organization',
+                                     verbose_name='Primary Organization', on_delete=models.CASCADE)
+    #creator = models.CharField(default='unknown', max_length=200)
+    #updater = models.CharField(default='None', max_length=200)
+    #updated = models.TimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['username', 'organization']
+
+    def get_fields(self):
+        return [(field.name, getattr(self,field.name)) for field in Sysadmin._meta.fields]
+
+    def __str__(self):
+        return str(self.username)
+
+    def get_organizations(self):
+        return self.organizations.get_queryset()
+
+    def get_home_organization(self):
+        return self.organization
+
+    def organizations_list(self):
+        orgs = []
+        for o in self.organizations.get_queryset():
+            orgs.append(str(o))
+        return orgs
+
+    def organizations_id_list(self):
+        orgids = []
+        for o in self.organizations.get_queryset():
+            orgids.append(int(o.id))
+        return orgids
+
+
+
+@receiver(user_has_authenticated)
+def post_auth_user_has_authenticated(sender, **kwargs):
+    now = datetime.datetime.utcnow()
+    msg = str(now) + ":post_auth_user_has_authenticated = " + str(kwargs['user'].username)
+    logger.info(msg)
+    is_user_a_sysad(**kwargs)
+    user_has_authenticated_sendemail(**kwargs)
+
+
+@receiver(user_login_failure)
+def post_auth_user_login_failure(sender, **kwargs):
+    now = datetime.datetime.utcnow()
+    try:
+        username = kwargs['user']
+    except AttributeError:
+        username = 'None'
+    msg = str(now) + ":post_auth_user_login_failure = " + str(username)
+    logger.info(msg)
+    #user_has_login_failure_sendemail(**kwargs)
+
+@receiver(user_logged_out)
+def post_auth_user_has_logged_out(sender, **kwargs):
+    now = datetime.datetime.utcnow()
+    msg = str(now) + ":post_auth_user_has_logged_out = " + str(kwargs['user'].username)
+    logger.info(msg)
+
+#@receiver(user_cannot_authenticate)
+#def post_auth_user_not_authenticated(sender, **kwargs):
+#    now = datetime.datetime.utcnow()
+#    msg = str(now) + ":post_auth_user_cannot_authenticate = " + str(kwargs['user'].username)
+#    logger.info(msg)
+#    #user_has_authenticated_sendemail(**kwargs)
+
+
+@receiver(local_user_has_authenticated)
+def post_auth_local_user_has_authenticated(sender, **kwargs):
+    now = datetime.datetime.utcnow()
+    msg = str(now) + ":post_auth_local_user_has_authenticated = " + str(kwargs['user'].username)
+    logger.info(msg)
+    user_has_authenticated_sendemail(**kwargs)
+
+
+@receiver(local_user_password_rejected)
+def post_auth_local_user_password_rejected(sender, **kwargs):
+    now = datetime.datetime.utcnow()
+    msg = str(now) + ":post_auth_local_user_password_rejected = " + str(kwargs['user'].username)
+    logger.info(msg)
+    #local_user_has_authenticated_sendemail(**kwargs)
+
+@receiver(local_user_cannot_authenticate)
+def post_auth_user_not_authenticated(sender, **kwargs):
+    now = datetime.datetime.utcnow()
+    msg = str(now) + ":post_auth_local_user_cannot_authenticate = " + str(kwargs['user'].username)
+    logger.info(msg)
+    #local_user_has_authenticated_sendemail(**kwargs)
+
+def user_has_authenticated_sendemail(**kwargs):
+    hl = hashlib.sha256()
+    hl.update(str(kwargs['request'].COOKIES['csrftoken']).encode('utf-8'))
+    hashedtoken = hl.hexdigest()
+    existingtoken = 'none'
+
+    fname = '/tmp/ssop_' + str(kwargs['user'].id) + '.txt'
+    try:
+        if os.path.exists(fname):
+            fh = open(fname, 'r')
+            existingtoken = fh.read()
+        else:
+            fh = open(fname, 'w')
+            fh.write(hashedtoken)
+        fh.close()
+    except OSError as e:
+        print('failed to create or read token file ' + str(fname) + '  error = ' + str(e))
+
+    if hashedtoken != existingtoken:
+        email = kwargs['user'].email
+        firstname = kwargs['user'].first_name
+        ymdhms = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        subject = 'SSOPSB Login'
+        body = 'Hello ' + firstname + ',\nWe noticed you logged into SSOPSB at ' + str(ymdhms) + '.\n'
+        body = body + 'If you did not login at this time, please immediately contact ' + str(settings.SSOP_ADMIN_EMAIL)
+        body = body + '\n\nYou can also direct message @Kirk Holub on https://oar-gsl.slack.com'
+        fromaddr = settings.EMAIL_HOST_USER
+        toaddr = [email]
+        try:
+            if settings.DEBUG:
+                msg = "NOT running: send_mail(subject, body, fromaddr, toaddr, fail_silently=False)"
+                msg = msg + ' -- toaddr: ' + str(toaddr)
+                logger.debug(msg)
+            else:
+                send_mail(subject, body, fromaddr, toaddr, fail_silently=False)
+        except SMTPException as e:
+            now = datetime.datetime.utcnow()
+            msg = str(now) + ":User has logged in email failed:" + str(email) + ":post_auth_user_has_authenticated"
+            logger.info(msg)
 

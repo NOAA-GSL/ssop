@@ -54,7 +54,7 @@ def runcmdl(cmdl, execute):
     return status, result
 
 
-def get_or_add_sysadmin(user, creator, homeorg, orglist):
+def get_or_add_sysadmin(user, homeorg, orglist):
     try:
         uqs = User.objects.filter(email=user.email)
         if uqs.count() == 0:
@@ -62,7 +62,7 @@ def get_or_add_sysadmin(user, creator, homeorg, orglist):
 
         sa = Sysadmin.objects.filter(username__email=user.email)
         if sa.count() == 0:
-            sa = Sysadmin(username=user, creator=creator)
+            sa = Sysadmin(username=user)
             sa.save()
         else:
             sa = sa[0]
@@ -80,7 +80,7 @@ def get_or_add_sysadmin(user, creator, homeorg, orglist):
         msg = str(now) + ":UserWarning:" + str(user.email) + ":e = " + str(e)
         logger.info(msg)
 
-def add_sysadmins(creator):
+def add_sysadmins():
 
     # Start from an initialized database or run command 'clean_system' and then manually run the sql commands
     # to insure auto increment for organization table has been reset
@@ -143,7 +143,7 @@ def add_sysadmins(creator):
                 try:
                     send_mail(subject, body, fromaddr, toaddr, fail_silently=False)
                 except SMTPException as e:
-                    msg = str(now) + ":Send password failed:" + str(username) + ":" + creator
+                    msg = str(now) + ":Send password failed:" + str(username)
                     logger.info(msg)
 
             groupnames = ['cn=_OAR ESRL GSL Sysadm,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov',
@@ -155,15 +155,15 @@ def add_sysadmins(creator):
                     user.groups.add(newgroup)
                 user.save()
             except Group.DoesNotExist as e:
-                msg = str(now) + ":" + str(e) + ':' + str(username) + ":" + creator
+                msg = str(now) + ":" + str(e) + ':' + str(username)
                 logger.info(msg)
-        get_or_add_sysadmin(user, creator, homeorg, orglist)
+        get_or_add_sysadmin(user, homeorg, orglist)
 
         # pause a moment to allow objects to created (Organizations were being duplicated)
         naptime = 1
         time.sleep(naptime)
 
-def add_groups_and_permissions(creator):
+def add_groups_and_permissions():
 
     perms = ['add', 'change', 'delete', 'view']
     for groupname in settings.AUTH_SAML_GROUPS.keys():
@@ -204,7 +204,7 @@ def add_groups_and_permissions(creator):
 
         group.save()
         now = datetime.datetime.utcnow()
-        msg = str(now) + ":GroupobjectAddedPerms:" + groupname + ":" + creator
+        msg = str(now) + ":GroupobjectAddedPerms:" + groupname
         logger.info(msg)
 
 def hash_to_fingerprint(data):
@@ -734,7 +734,7 @@ class Uniqueuser(models.Model):
 
     def initstate(self):
         need_to_save = False
-        if 'setme' in self.name:
+        if 'setme' in self.get_fingerprint() or 'showme' in str(self.clearallattrs()):
             utcnow = datetime.datetime.utcnow()
             yydoy = utcnow.strftime('%y') + utcnow.strftime('%j')
             userstoday = 1
@@ -747,9 +747,7 @@ class Uniqueuser(models.Model):
                 gn = GraphNode(name=self.name, nodetype=nt) 
                 gn.save()
                 self.graphnode = gn
-            need_to_save = True 
 
-        if 'setme' in self.get_fingerprint() or 'showme' in str(self.clearallattrs()):
             da = {}
             uu = {} 
             if self.nameattrsgroup is not None:
@@ -1168,8 +1166,7 @@ def is_user_a_sysad(**kwargs):
         oukeylist.sort()
     for k in oukeylist:
         orglist.append(kwargs['request'].session['samlUserdata'][str(k)][0])
-    creator = "is_user_a_sysad"
-    get_or_add_sysadmin(user, creator, homeorg, orglist)
+    get_or_add_sysadmin(user, homeorg, orglist)
 
 class Sysadmin(models.Model):
     """
@@ -1180,9 +1177,6 @@ class Sysadmin(models.Model):
     organizations = models.ManyToManyField('Organization', verbose_name='Organizations')
     organization = models.ForeignKey('Organization', default=1, related_name='sysadmin_organization',
                                      verbose_name='Primary Organization', on_delete=models.CASCADE)
-    #creator = models.CharField(default='unknown', max_length=200)
-    #updater = models.CharField(default='None', max_length=200)
-    #updated = models.TimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ['username', 'organization']

@@ -1,0 +1,31 @@
+{
+    "strict": true,
+    "debug": true,
+    "sp": {
+        "entityId": "https://gsl-webstage8.gsd.esrl.noaa.gov/ssopsb/metadata/",
+        "assertionConsumerService": {
+            "url": "https://gsl-webstage8.gsd.esrl.noaa.gov/ssopsb/?acs",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+        },
+        "singleLogoutService": {
+            "url": "https://gsl-webstage8.gsd.esrl.noaa.gov/ssopsb/?sls",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+        },
+        "NameIDFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+        "x509cert": "",
+        "privateKey": "",
+        "x509certNew": ""
+    },
+    "idp": {
+        "entityId": "cac-idp",
+        "singleSignOnService": {
+            "url": "https://sso.noaa.gov:443/openam/SSORedirect/metaAlias/cac/cac-idp",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+        },
+        "singleLogoutService": {
+            "url": "https://sso.noaa.gov:443/openam/IDPSloRedirect/metaAlias/cac/cac-idp",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+        },
+        "x509cert": "MIIErjCCA5agAwIBAgIDAXZbMA0GCSqGSIb3DQEBCwUAMFoxCzAJBgNVBAYTAlVTMRgwFgYDVQQKEw9VLlMuIEdvdmVybm1lbnQxDDAKBgNVBAsTA0RvRDEMMAoGA1UECxMDUEtJMRUwEwYDVQQDEwxET0QgU1cgQ0EtNjAwHhcNMjIwNDI1MjMzNDM1WhcNMjUwNDAyMTMzNDQ5WjB2MQswCQYDVQQGEwJVUzEYMBYGA1UEChMPVS5TLiBHb3Zlcm5tZW50MQwwCgYDVQQLEwNEb0QxDDAKBgNVBAsTA1BLSTENMAsGA1UECxMERElTQTEiMCAGA1UEAxMZc3NvLm5vYWEuZ292LXNpZ25pbmctMjAyMjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKT7+lcHbw5COCySht0jGbAoUJr5xaani3q+RNb923Z8CkhogS05m9SGe9q8ZyR6U6lRSBsj/DShz1OGgXX682TWSG5d5hVc6eC4PAif4lsAgZf2ZJmPWtVnarLx4RccBGfjuJYm8WcrSOIHXF6uatGbys+MMprJrN9/tvXI1C6szyIsFh8qTBex2+YEXdPXg/xwSYlcP7iGwQdH9HY6VyDDvkVLoDynGsT9aGJ6yzSE6EHLyohvPC4R727wCrT+CT9iiUE5YUwqA/6FFKUr5ioO0MALBfgCVcyae/ubwH1Ea28Jivf7pSJ7Fb7pvTLcXmPR80xi0Mpch/e5bW4zCBMCAwEAAaOCAV8wggFbMB8GA1UdIwQYMBaAFH3+8BAXOb/TcoT9rSlw+OI9mfMYMB0GA1UdDgQWBBQCl4xNI8Ok/8k7e91wPWqrZKS5sjBlBggrBgEFBQcBAQRZMFcwMwYIKwYBBQUHMAKGJ2h0dHA6Ly9jcmwuZGlzYS5taWwvc2lnbi9ET0RTV0NBXzYwLmNlcjAgBggrBgEFBQcwAYYUaHR0cDovL29jc3AuZGlzYS5taWwwDgYDVR0PAQH/BAQDAgWgMDsGA1UdHwQ0MDIwMKAuoCyGKmh0dHA6Ly9jcmwuZGlzYS5taWwvY3JsL0RPRFNXQ0FfNjBfU1NMLmNybDAkBgNVHREEHTAbghlzc28ubm9hYS5nb3Ytc2lnbmluZy0yMDIyMBYGA1UdIAQPMA0wCwYJYIZIAWUCAQsnMCcGA1UdJQQgMB4GCCsGAQUFBwMBBggrBgEFBQcDAgYIKwYBBQUIAgIwDQYJKoZIhvcNAQELBQADggEBAEgvMlzbAZTWwbPgPd0AEAYqM4qyUOAKa0PILI64M0hVVs23/zfaDp3DaKGnPiybgEvq5u7+044bLkcn4934zHPFjNFGYulxQh+QNUMdqGB6b24INrgAFTFnDPEeWXyZBsgYJLbf53+jBe3xLrqlNekb5nf1A3XxgsCIf6zWToNqV4scz4vfG6qAAJvfKIDSsWSU9rM1BWpWY3llcDvCYGzBQZENQVWjaZL+Ry9l7lT749GO9bcym7Tyzrqf/fSCGRMZ/m2JmFDb1pdVWWNJO+O40f2zVyduTkml6X5ZpiS2e2SmPM7vfbt/2GCK1G+wlPsRjFRbGJyHrWhiBOloktg="
+    }
+}

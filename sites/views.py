@@ -518,7 +518,6 @@ def project_ldg(request, projectname):
         username = request.POST['username']
         password = request.POST['password']
         user = authenticate(request, username=username, password=password)
-        creator = str(user)
 
         if user.is_authenticated:
             if form.is_valid():
@@ -2191,10 +2190,6 @@ def index(request):
     logger.info(msg)
 
     req = prepare_django_request(request)
-    #msg = 'index_icam -- prepare_django_request req = '
-    #for k in req.keys():
-    #    msg = msg + '\n' + str(k) + ': ' + str(req[k])
-    #logger.info(msg)
 
     #try:
     #    thissession = request.session
@@ -2205,8 +2200,8 @@ def index(request):
     #logger.info(msg)
 
     auth = noaaOneLogin_Saml2_Auth(req, custom_base_path=settings.SAML_FOLDER)
-    #msg = 'auth: ' + str(auth)
-    #logger.info(msg)
+    msg = '   auth: ' + str(auth)
+    logger.info(msg)
 
     errors = []
     error_reason = None
@@ -2222,20 +2217,14 @@ def index(request):
         lenshortened = len(shortened)
         shortened = login[0:100] + '... ' + str(lenshortened) + ' chars removed ...' + login[-15:]
         msg = '  sso login HttpResponseRedirect( ' + str(shortened) + ' )'
+        msg = '  sso login HttpResponseRedirect( ' + str(login) + ' )'
         logger.info(msg)
         return HttpResponseRedirect(login)
 
-        # If AuthNRequest ID need to be stored in order to later validate it, do instead
-        #sso_built_url = auth.login()
-        #msg = 'sso_built_url: ' + str(sso_built_url)
-        #logger.info(msg)
-        #request.session['AuthNRequestID'] = auth.get_last_request_id()
-        #msg = 'sso request.session[AuthNRequestID]: '+ str(request.session['AuthNRequestID']) 
-        #logger.info(msg)
-        #return HttpResponseRedirect(sso_built_url)
     elif 'sso2' in req['get_data']:
         return_to = OneLogin_Saml2_Utils.get_self_url(req) + reverse('attrs')
         return HttpResponseRedirect(auth.login(return_to)) 
+
     elif 'slo' in req['get_data']:
         name_id = session_index_icam = name_id_format = name_id_nq = name_id_spnq = None
         if 'samlNameId' in request.session:
@@ -2271,8 +2260,8 @@ def index(request):
 
         #return HttpResponseRedirect(slo_built_url)
     elif 'acs' in req['get_data']:
-        #msg = '      acs req = ' + str(req)
-        #logger.info(msg)
+        msg = '      acs req = ' + str(req)
+        logger.info(msg)
         request_id = None
            
         if 'AuthNRequestID' in request.session:

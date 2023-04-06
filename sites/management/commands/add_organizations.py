@@ -8,7 +8,7 @@ class Command(BaseCommand):
 
 
     def handle(self, *args, **options):
-        for id in settings.ALL_ORGS_BY_ID:
+        for id in settings.ALL_ORGS_BY_ID.keys():
             org = get_or_add_organization_by_name(settings.ALL_ORGS_BY_ID[id]['name'])
             org.email = settings.ALL_ORGS_BY_ID[id]['email']
             org.contact = settings.ALL_ORGS_BY_ID[id]['contact']

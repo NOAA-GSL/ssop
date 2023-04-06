@@ -73,7 +73,7 @@ ALL_ORGS_BY_ID = {
     }
 
 # SSO
-CSRF_TRUSTED_ORIGINS = ['https://sso-dev.noaa.gov']
+CSRF_TRUSTED_ORIGINS = ['https://sso-dev.noaa.gov', 'https://sso.noaa.gov']
 SAML_FOLDER = os.path.join(BASE_DIR, 'sites/saml')
 AUTH_RETURN_TO = "/ssopsb/adminssop/sites/"
 

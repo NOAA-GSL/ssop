@@ -58,22 +58,14 @@ class ProjectAdmin(admin.ModelAdmin):
     readonly_fields = ('state', 'updater') 
     ordering = ('display_order', 'organization', 'name')
 
-    #def save_model(self, request, obj, form, change):
-    #    # now we can save the object and call super
-    #    set_creator_and_updater(self, request, obj, form)
-    #    obj.save()
-    #    super(NfsExportAdmin, self).save_model(request, obj, form, change)
-
 
 class SysadminAdmin(admin.ModelAdmin):
-    #list_display = ('username', 'organization', 'organizations_list', 'creator', 'updater')
     list_display = ('username', 'organization', 'organizations_list')
     list_display_links = list_display
     form = SysadminAdminForm
                 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         field = super(SysadminAdmin, self).formfield_for_dbfield(db_field, request, **kwargs)
-        field = set_dbfield_to_sysad('provision.Sysadmin.creator', field, db_field, request)
         field = set_dbfield_to_sysad('provision.Sysadmin.updater', field, db_field, request)
         return field
 

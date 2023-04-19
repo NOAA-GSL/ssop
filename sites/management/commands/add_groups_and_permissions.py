@@ -14,4 +14,4 @@ class Command(BaseCommand):
     help = "creates and assigns permissions to all groups"
 
     def handle(self, *args, **options):
-        add_groups_and_permissions("add_groups_and_permissions")
+        add_groups_and_permissions()

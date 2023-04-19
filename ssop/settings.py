@@ -56,7 +56,7 @@ def get_secret(key):
 SECRET_KEY = get_secret('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False 
+DEBUG = True
 DEBUG_SAML_DEBUG = False 
 VERBOSE = False
 
@@ -75,7 +75,7 @@ ALL_ORGS_BY_ID = {
 # SSO
 CSRF_TRUSTED_ORIGINS = ['https://sso-dev.noaa.gov', 'https://sso.noaa.gov']
 SAML_FOLDER = os.path.join(BASE_DIR, 'sites/saml')
-AUTH_RETURN_TO = "/ssopsb/adminssop/sites/"
+AUTH_RETURN_TO = "/ssopsb/adminssopsb/sites/"
 
 
 # NOTE: --- The group names ARE repeated in AUTH_SAML_USER_FLAGS_BY_GROUP -- so if you change one here, be sure to change it in FLAGS_BY_GROUP also
@@ -85,11 +85,15 @@ AUTH_SAML_GROUPS = {
         "modelslist": [],
         "viewmodels": ["About", "Attributes", "AttributeGroup", "AuthToken", "Connection", "Organization", "Project", "Sysadmin", "Uniqueuser"]
     },
-    "cn=_OAR ESRL GSL Sysadm,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov": {
+    "cn=_OAR GSL Sysadm,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov": {
         "modelslist": ["Project"],
         "viewmodels": ["About", "Attributes", "AttributeGroup", "AuthToken", "Connection", "Sysadmin", "Uniqueuser"]
     },
     'cn=_OAR ESRL GSL SSOPAdmin,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov': {
+        "modelslist": ["About", "Attributes", "AttributeGroup", "AuthToken", "Connection", "GraphNode", "Key", "Organization", "NodeType", "Project", "Sysadmin", "Uniqueuser", "User"],
+        "viewmodels": []
+    },
+    'cn=_OAR GSL QRBA ADM,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov': {
         "modelslist": ["About", "Attributes", "AttributeGroup", "AuthToken", "Connection", "GraphNode", "Key", "Organization", "NodeType", "Project", "Sysadmin", "Uniqueuser", "User"],
         "viewmodels": []
     }
@@ -102,8 +106,9 @@ AUTH_SAML_GROUPS = {
 AUTH_SAML_USER_FLAGS_BY_GROUP = {
     "is_active": "cn=_OAR ALL,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
     "is_staff": "cn=_OAR ALL,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
-    "is_sysadmin": "cn=_OAR ESRL GSL Sysadm,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
+    "is_sysadmin": "cn=_OAR GSL Sysadm,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
     "is_ssopadmin": "cn=_OAR ESRL GSL SSOPAdmin,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
+    "is_ssopadmin": "cn=_OAR GSL QRBA ADM,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
 }
 
 # NOTE: mapping is case sensitive
@@ -122,13 +127,13 @@ NONE_NAME = "#none"
 # Expire the session after an hour
 SESSION_COOKIE_AGE = 3600
 LOGOUT_EXPIRY = 2
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True 
 
 # email configuration
 # use 25 instead of 587
 # internal routing expects traffic from noreply.gsd@noaa.gov to originate on port 25; which is running TLS
-EMAIL_HOST = 'mail.wx.noaa.gov'
+EMAIL_HOST = 'mail.pwx.noaa.gov'
 EMAIL_PORT = 25
 EMAIL_HOST_USER = 'noreply.gsl@noaa.gov'
 EMAIL_USE_TLS = True
@@ -136,12 +141,6 @@ SSOP_ADMIN_EMAIL = "qrba_adm.gsl@noaa.gov"
 
 # https://stackoverflow.com/questions/8023126/how-can-i-test-https-connections-with-django-as-easily-as-i-can-non-https-conne1826
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-
-#if DEBUG:
-#    SESSION_COOKIE_AGE = 10 * SESSION_COOKIE_AGE
-#else:
-#    CSRF_COOKIE_SECURE = True
-#    SESSION_COOKIE_SECURE = True
 
 # tailored from https://www.webforefront.com/django/setupdjangologging.html
 # unfortunately, cannot use a variable to enforce DRY for basepath

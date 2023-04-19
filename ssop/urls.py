@@ -42,7 +42,6 @@ urlpatterns = [
     path('ssopsb/login/', ldg, name='login'),
     path('ssopsb/logout/', logout, name='ssopsb_logout'),
     path('ssopsb/logout/<str:connection_state>', logout, name='ssopsb_logout'),
-    path('', index),
     path('ssopsb/', index),
     path('pubcert/', pubcert),
     path('attrs/', attrs, name='attrs'),

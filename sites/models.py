@@ -2,6 +2,7 @@ from django.db import models
 from django.apps import apps
 from django.contrib.auth.models import User, Group, Permission
 from django.contrib.contenttypes.models import ContentType
+from django.core.mail import send_mail
 from django.utils.timezone import now
 from django.utils.safestring import mark_safe
 from hashlib import md5
@@ -12,6 +13,7 @@ from django_auth_saml.backend import user_has_authenticated, user_login_failure
 from django.core.exceptions import SuspiciousFileOperation
 from django_contrib_auth.backends import local_user_has_authenticated, local_user_cannot_authenticate, local_user_password_rejected
 from django.dispatch import receiver, Signal
+from smtplib import SMTPException
 
 import ast
 import datetime
@@ -377,6 +379,7 @@ class Project(models.Model):
     def initstate(self):
         need_to_save = False
         state = self.get_state()
+
         if 'newproject' in self.verbose_name:
             self.verbose_name = self.name 
             need_to_save = True 
@@ -429,6 +432,11 @@ class Project(models.Model):
                     fp.close()
 
             need_to_save = True 
+
+        if not settings.DEBUG:
+            if not self.expiretokens:
+                self.expiretokens = True
+                need_to_save = True 
 
         # Add the file from the DB if it does not exist
         #msg = "      self.get_logo() is currently: " + str(self.get_logo())
@@ -570,6 +578,19 @@ class Attributes(models.Model):
     def clearattrs(self):
         return self.decodedattrs 
 
+    def redact_attr(self):
+        fernet = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
+        try:
+            # must be valid syntax for ast.literaleval (json)
+            msg = str("{'" + str(self) + "':'redacted'}")
+            msg = msg.replace("'", '"', 10)
+            msg = msg.encode()
+            self.attrs = fernet.encrypt(msg)
+            self.decodedattrs = 'showme' 
+            self.save()
+        except KeyError:
+            pass
+
 
 class AuthToken(models.Model):
     token = models.CharField(max_length=150, default='setme')
@@ -675,12 +696,6 @@ class Connection(models.Model):
             attributes.append(ua)
         return attributes
 
-    def clear_user_attributes(self):
-        attributes = []
-        for ua in self.get_ua():
-            ua.attrs = None
-            ua.save()
-   
     def show_user_attributes(self):
         attributes = []
         fernet = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
@@ -1293,9 +1308,10 @@ def user_has_authenticated_sendemail(**kwargs):
         toaddr = [email]
         try:
             if settings.DEBUG:
-                msg = "NOT running: send_mail(subject, body, fromaddr, toaddr, fail_silently=False)"
+                msg = "DEBUG -- running: send_mail(subject, body, fromaddr, toaddr, fail_silently=False)"
                 msg = msg + ' -- toaddr: ' + str(toaddr)
                 logger.debug(msg)
+                send_mail(subject, body, fromaddr, toaddr, fail_silently=False)
             else:
                 send_mail(subject, body, fromaddr, toaddr, fail_silently=False)
         except SMTPException as e:

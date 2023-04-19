@@ -115,8 +115,8 @@ class SAMLBackend:
 
         saml_user = _SAMLUser(self, request=request)
         user = self.authenticate_saml_user(request, saml_user)
-        msg = '      user: ' + str(user) + ' for saml_user ' + str(saml_user)
-        logger.info(msg)
+        #msg = '      user: ' + str(user) + ' for saml_user ' + str(saml_user)
+        #logger.info(msg)
         if user is not None:
             user_has_authenticated.send(type(self), user=user, request=request)
         return user
@@ -388,8 +388,8 @@ class _SAMLUser:
         User object if successful. Returns None on failure.
         """
         user = None
-        msg = "    in django_auth_saml authenticate request is " + str(request)
-        logger.debug(msg)
+        #msg = "    in django_auth_saml authenticate request is " + str(request)
+        #logger.debug(msg)
         try:
             self._authenticate_user_dn(request)
             self._check_requirements()
@@ -490,9 +490,9 @@ class _SAMLUser:
         #if len(str(result['get_data'])) > int(0):
         #    msg = '  prepare_django_request get_data = ' + str(result['get_data'])
         #    logger.debug(msg)
-        if len(str(result['post_data'])) > int(0):
-            msg = '       prepare_django_request post_data = ' + str(result['post_data'])
-            logger.debug(msg)
+        #if len(str(result['post_data'])) > int(0):
+        #    msg = '       prepare_django_request post_data = ' + str(result['post_data'])
+        #    logger.debug(msg)
         return result
 
     def _authenticate_user_dn(self, request):
@@ -521,25 +521,25 @@ class _SAMLUser:
 
         if 'sso' in req['get_data']:
             login = auth.login()
-            msg = '     _authuser HttpResponseRedirect( ' + str(login) + ' )'
-            logger.info(msg)
+            #msg = '     _authuser HttpResponseRedirect( ' + str(login) + ' )'
+            #logger.info(msg)
             return HttpResponseRedirect(login)
         elif 'acs' in req['get_data']:
             request_id = None
             if 'AuthNRequestID' in request.session:
                 request_id = request.session['AuthNRequestID']
 
-            msg = "     a_u_dn acs request_id = " + str(request_id)
-            logger.info(msg)
+            #msg = "     a_u_dn acs request_id = " + str(request_id)
+            #logger.info(msg)
 
             auth.process_response(request_id=request_id)
             errors = auth.get_errors()
-            msg = "     a_u_dn auth.process_response errors = " + str(errors)
-            logger.info(msg)
+            #msg = "     a_u_dn auth.process_response errors = " + str(errors)
+            #logger.info(msg)
 
             not_auth_warn = not auth.is_authenticated()
-            msg = "     a_u_dn auth.is_authenticated() = " + str(auth.is_authenticated())
-            logger.info(msg)
+            #msg = "     a_u_dn auth.is_authenticated() = " + str(auth.is_authenticated())
+            #logger.info(msg)
             if not errors:
                 #if 'AuthNRequestID' in request.session:
                 #    del request.session['AuthNRequestID']
@@ -552,8 +552,8 @@ class _SAMLUser:
                 if 'RelayState' in req['post_data'] and OneLogin_Saml2_Utils.get_self_url(req) != req['post_data']['RelayState']:
                     # To avoid 'Open Redirect' attacks, before execute the redirection confirm
                     # the value of the req['post_data']['RelayState'] is a trusted URL.
-                    msg = '        _authuser HttpResponseRedirect( ' + str(auth.redirect_to(req['post_data']['RelayState'])) + ' )'
-                    logger.info(msg)
+                    #msg = '        _authuser HttpResponseRedirect( ' + str(auth.redirect_to(req['post_data']['RelayState'])) + ' )'
+                    #logger.info(msg)
                     return HttpResponseRedirect(auth.redirect_to(req['post_data']['RelayState']))
             elif auth.get_settings().is_debug_active():
                     error_reason = auth.get_last_error_reason()
@@ -566,15 +566,15 @@ class _SAMLUser:
                 for k, v in request.session['samlUserdata'].items():
                     attributes[k] = v
 
-        if attributes:
-            msg = "backend found attribute keys " + str(attributes.keys())
-            logger.debug(msg)
-        else:
-            msg = "backend did not find attributes"
-            logger.debug(msg)
-            #raise self.AuthenticationFailed(
-            #    "backend no attributes found"
-            #)
+        #if attributes:
+        #    msg = "backend found attribute keys " + str(attributes.keys())
+        #    logger.debug(msg)
+        #else:
+        #    msg = "backend did not find attributes"
+        #    logger.debug(msg)
+        #    #raise self.AuthenticationFailed(
+        #    #    "backend no attributes found"
+        #    #)
     #
     # User management
     #
@@ -609,7 +609,7 @@ class _SAMLUser:
             save_user = True
 
         if should_populate:
-            logger.info("Populating Django user {}".format(username))
+            #logger.info("Populating Django user {}".format(username))
             self._populate_user()
             save_user = True
 
@@ -625,8 +625,8 @@ class _SAMLUser:
 
         # This has to wait until we're sure the user has a pk.
         if self.settings.MIRROR_GROUPS or self.settings.MIRROR_GROUPS_EXCEPT:
-            msg = "     self._group_names = " + str(self._group_names)
-            logger.info(msg)
+            #msg = "     self._group_names = " + str(self._group_names)
+            #logger.info(msg)
             newgroups = set() 
             for (tag, usergroup) in self.settings.USER_FLAGS_BY_GROUP.items():
                 #msg = "    (tag, group) = " + str(tag) + ", " + str(usergroup)
@@ -641,7 +641,7 @@ class _SAMLUser:
                             msg = '     found sysadm in ' + str(sgn).lower()
                             logger.info(msg)
                             pass
-                    if str(sgn).lower() in str(usergroup).lower():
+                    if str(usergroup).lower() in str(sgn).lower():
                         ng = Group.objects.get(name=usergroup)
                         newgroups.add(ng)
             #msg = "    newgroups are: " + str(newgroups)
@@ -667,7 +667,7 @@ class _SAMLUser:
         #msg = 'in _populate_user_from_attributes... '
         #logger.info(msg)
         attrs = self._attrs
-        msg = '  ----   attrs[mail]: ' + str(attrs['mail'])
+        #msg = '  ----   attrs[mail]: ' + str(attrs['mail'])
         #logger.info(msg)
         date_joined = str(self._user.date_joined).split('+')[0]
         #msg = '  ----   ' + str(attrs['mail']) + ' joined on ' + date_joined

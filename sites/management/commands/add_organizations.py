@@ -15,14 +15,14 @@ class Command(BaseCommand):
             org.save()
 
 
-        for id in settings.ALL_ORGS_BY_ID:
+        for id in settings.ALL_ORGS_BY_ID.keys():
             porg = get_or_add_organization_by_name(settings.ALL_ORGS_BY_ID[id]['parent'])
             if settings.NONE_NAME in str(porg):
                 continue
 
-            for c in settings.ALL_ORGS_BY_ID[id]['name']:
-                corg = get_or_add_organization_by_name(c)
-                print("adding " + str(corg) + " to " + str(porg))
-                OrganizationNode.objects.create(parent=porg, child=corg)
+            for cid in settings.ALL_ORGS_BY_ID.keys():
+                corg = get_or_add_organization_by_name(settings.ALL_ORGS_BY_ID[cid]['name'])
+                if porg != corg:
+                    print("adding " + str(corg) + " to " + str(porg))
+                    #OrganizationNode.objects.create(parent=porg, child=corg)
            
-

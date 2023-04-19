@@ -133,9 +133,12 @@ def attributesFromDecodedFp(decodedfingerprint, encrypted_attrs):
     qs = Attributes.objects.filter(decodedfingerprint=decodedfingerprint)
     if qs.count() == int(0):
         attrs = Attributes(attrs=encrypted_attrs, decodedfingerprint=decodedfingerprint)
-        attrs.save()
     else:
+        # attributes should have been redacted, so they need to be replaced
         attrs = qs[0]
+        attrs.attrs = encrypted_attrs
+        attrs.decodedattrs = "showme"
+    attrs.save()
     return attrs
 
 def attributeGroupFromAttributes(grouptype, attributelist):
@@ -187,6 +190,15 @@ def initialize_nodetypes():
         for t in settings.NODE_TYPE_CHOICES:
             nt = NodeType(type=t)
             nt.save()
+
+def get_authtoken(access_token):
+    qs = AuthToken.objects.filter(token=access_token)
+    if qs.count() == int(0):
+       token = AuthToken()
+       token.save()
+    else:
+       token = qs[0]
+    return token 
 
 def ldg_authenticated(request):
     attributes = []
@@ -406,8 +418,7 @@ def ldg_authenticated(request):
 
         uufp = hash_to_fingerprint(uu)
         uniqueuser = uuFromFp(uufp, nameattrsgroup, connattrsgroup)
-        authtoken = AuthToken()
-        authtoken.save()
+        authtoken = get_authtoken(accesstoken)
 
         connection = Connection(project=project, attrsgroup=connattrsgroup, token=authtoken, connection_state=connection_state, uniqueuser=uniqueuser)
         connection.save()
@@ -445,7 +456,7 @@ def logout(request, connection_state = None):
     msg = "   logout connection_state: " + str(connection_state)
     logger.info(msg)
 
-    if 'logout' in str(request):
+    if 'logout' in str(request) and connection_state is not None:
         qs = Connection.objects.filter(connection_state=connection_state)
         if qs.count() > int(0):
             qs = qs[0]
@@ -476,9 +487,6 @@ def indextable(request):
     msg = "   index request: " + str(request)
     logger.info(msg)
 
-    # take the opportunity to clean any expired tokens
-    clean_authtokens()
-
     attributes = []
     lmr = Lmr()
     for p in Project.objects.all().order_by('display_order'):
@@ -492,9 +500,6 @@ def indextable(request):
 def index_grid(request):
     msg = "   index request: " + str(request)
     logger.info(msg)
-
-    # take the opportunity to clean any expired tokens
-    #clean_authtokens()
 
     attributes = []
     lmr = Lmr()
@@ -637,6 +642,11 @@ def showattrs(request, access_token = None):
 
     return render(request, 'attrs.html', {'paint_logout': True, 'attributes': attributes})
 
+def redact_ua(ua):
+    qs = Attributes.objects.filter(attrs=ua)
+    if qs.count() > int(0):
+       qs[0].redact_attr()
+
 def attrsjwt(request, access_token = None):
     #msg = "   attrsjwt -- request = " + str(request)
     #logger.info(msg)
@@ -660,48 +670,50 @@ def attrsjwt(request, access_token = None):
                 if str(fetchedtoken) not in str(authtoken):
                     msg = "fetchedtoken not equal authtoken for " + str(fetchedtoken) + " and " + str(authtoken)
                     logger.info(msg)
-
-            encode_key = connection.project.get_decode_key()
-            user_attributes = connection.get_user_attributes()
-            #msg = "    connection get_user_attributes(): " + str(user_attributes)
-            #logger.info(msg)
-
+                    signedattributes = fetchedtoken  
+                    fetchedtoken = None
+          
             if fetchedtoken:
-                connection.clear_user_attributes()
-
-            dar = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
-            alldecrypted = '\n' 
-            for ua in user_attributes:
-                #msg = "    ua = " + str(ua)
+                encode_key = connection.project.get_decode_key()
+                user_attributes = connection.get_user_attributes()
+                #msg = "    connection get_user_attributes(): " + str(user_attributes)
                 #logger.info(msg)
-                aledar = ast.literal_eval(ua)
-                dataatrest = bytes_in_string(aledar)
-                #msg = '   dataatrest: ' + str(dataatrest)
+    
+                dar = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
+                alldecrypted = '\n' 
+                for ua in user_attributes:
+                    aledar = ast.literal_eval(ua)
+                    dataatrest = bytes_in_string(aledar)
+                    #msg = '   dataatrest: ' + str(dataatrest)
+                    #logger.info(msg)
+    
+                    decrypteddata = dar.decrypt(dataatrest).decode()
+                    #msg = "   decrypteddata: " + str(decrypteddata)
+                    #logger.info(msg)
+                    alldecrypted = decrypteddata + ',' + alldecrypted
+                   
+                    #if fetchedtoken:
+                    #    redact_ua(ua)                    
+
+                if len(alldecrypted) > int(1):
+                    alldecrypted = alldecrypted[:-2]
+                #msg = "   alldecrypted: " + str(alldecrypted)
                 #logger.info(msg)
-
-                decrypteddata = dar.decrypt(dataatrest).decode()
-                #msg = "   decrypteddata: " + str(decrypteddata)
+    
+                dit = Fernet(encode_key)
+                data_in_transit = dit.encrypt(alldecrypted.encode())
+                #msg = "   data_in_transit: " + str(data_in_transit)
                 #logger.info(msg)
-                alldecrypted = decrypteddata + ',' + alldecrypted
-            if len(alldecrypted) > int(1):
-                alldecrypted = alldecrypted[:-2]
-            #msg = "   alldecrypted: " + str(alldecrypted)
-            #logger.info(msg)
-
-            dit = Fernet(encode_key)
-            data_in_transit = dit.encrypt(alldecrypted.encode())
-            #msg = "   data_in_transit: " + str(data_in_transit)
-            #logger.info(msg)
-
-            attrs = {}
-            attrs['dit'] = str(data_in_transit)
-            #msg = "   attrs = " + str(attrs)
-            #logger.info(msg)
-            signedattributes = jwt.encode(attrs, settings.JWT_PRIVATE_KEY, algorithm="RS256")
-            #msg = "   leaving attrsjwt -- access_token = " + str(access_token)
-            #logger.info(msg)
-            #msg = "   attrsjwt -- signedattributes = " + str(signedattributes)
-            #logger.info(msg)
+    
+                attrs = {}
+                attrs['dit'] = str(data_in_transit)
+                #msg = "   attrs = " + str(attrs)
+                #logger.info(msg)
+                signedattributes = jwt.encode(attrs, settings.JWT_PRIVATE_KEY, algorithm="RS256")
+                #msg = "   leaving attrsjwt -- access_token = " + str(access_token)
+                #logger.info(msg)
+                #msg = "   attrsjwt -- signedattributes = " + str(signedattributes)
+                #logger.info(msg)
 #        else:
 #            msg = "  cqs.count() is zero for access_token " + str(access_token)
 #            logger.info(msg)
@@ -2217,6 +2229,7 @@ def index(request):
         lenshortened = len(shortened)
         shortened = login[0:100] + '... ' + str(lenshortened) + ' chars removed ...' + login[-15:]
         msg = '  sso login HttpResponseRedirect( ' + str(shortened) + ' )'
+        logger.info(msg)
         msg = '  sso login HttpResponseRedirect( ' + str(login) + ' )'
         logger.info(msg)
         return HttpResponseRedirect(login)
@@ -2260,8 +2273,8 @@ def index(request):
 
         #return HttpResponseRedirect(slo_built_url)
     elif 'acs' in req['get_data']:
-        msg = '      acs req = ' + str(req)
-        logger.info(msg)
+        #msg = '      acs req = ' + str(req)
+        #logger.info(msg)
         request_id = None
            
         if 'AuthNRequestID' in request.session:
@@ -2277,8 +2290,8 @@ def index(request):
         not_auth_warn = not auth.is_authenticated()
         #msg = "auth.process_response errors = " + str(errors)
         #logger.info(msg)
-        msg = "    acs len auth.get_attributes() = " + str(len(auth.get_attributes()))
-        logger.info(msg)
+        #msg = "    acs len auth.get_attributes() = " + str(len(auth.get_attributes()))
+        #logger.info(msg)
         #msg = "    acs auth.get_attribute('LineOffice') = " + str(auth.get_attribute('LineOffice'))
         #logger.info(msg)
         #msg = "    acs auth.get_attribute('ou0') = " + str(auth.get_attribute('ou0'))
@@ -2316,8 +2329,8 @@ def index(request):
             if 'RelayState' in req['post_data'] and OneLogin_Saml2_Utils.get_self_url(req) != req['post_data']['RelayState']:
                 # To avoid 'Open Redirect' attacks, before execute the redirection confirm
                 # the value of the req['post_data']['RelayState'] is a trusted URL.
-                msg = '  acs return to: ' + str(auth.redirect_to(req['post_data']['RelayState']))
-                logger.info(msg)
+                #msg = '  acs return to: ' + str(auth.redirect_to(req['post_data']['RelayState']))
+                #logger.info(msg)
                 return HttpResponseRedirect(auth.redirect_to(req['post_data']['RelayState']))
             elif auth.get_settings().is_debug_active():
                 error_reason = auth.get_last_error_reason()
@@ -2351,12 +2364,12 @@ def index(request):
             if url is not None:
                 # To avoid 'Open Redirect' attacks, before execute the redirection confirm
                 # the value of the url is a trusted URL.
-                msg = "   sls HttpResponseRedirect( " + str(url) + ' )'
-                logger.info(msg)
+                #msg = "   sls HttpResponseRedirect( " + str(url) + ' )'
+                #logger.info(msg)
                 return HttpResponseRedirect(url)
             else:
-                msg = "     -- sls render logged_out.html"
-                logger.info(msg)
+                #msg = "     -- sls render logged_out.html"
+                #logger.info(msg)
                 return render(request, 'logged_out.html')
 
         elif auth.get_settings().is_debug_active():
@@ -2371,8 +2384,8 @@ def index(request):
         pass
 
     if attributes:
-        msg = "len attributes: " + str(len(attributes))
-        logger.info(msg)
+        #msg = "len attributes: " + str(len(attributes))
+        #logger.info(msg)
         email = None
         numgroups = int(0) 
         groups = []
@@ -2384,16 +2397,16 @@ def index(request):
                     groups.append(g)
                 numgroups = len(groups)
                
-        msg = "email: " + str(email)
-        logger.info(msg)
-        msg = "number of groups: " + str(numgroups)
-        logger.info(msg)
+        #msg = "email: " + str(email)
+        #logger.info(msg)
+        #msg = "number of groups: " + str(numgroups)
+        #logger.info(msg)
         if len(groups) > int(1):
             groups.sort()
-        msg = "groups:"
-        for g in groups:
-            msg = "   " + str(g)
-            logger.info(msg)
+        #msg = "groups:"
+        #for g in groups:
+        #    msg = "   " + str(g)
+        #    logger.info(msg)
         
         username = str(email)
         msg = '      username from SAML attributes: ' + str(username)
@@ -2403,22 +2416,22 @@ def index(request):
         qs = usermodel.objects.filter(email=email)
         if qs.count() > int(0):
             user = qs[0]
-            msg = msg + ", found backend User " + str(user)
-            logger.info(msg)
+            #msg = msg + ", found backend User " + str(user)
+            #logger.info(msg)
         elif user is not None:
             user = usermodel.objects.create(email=email, username=username)
-            msg = "      created backend User " + str(user) + " for email = " + str(email) + " and username = " + str(username)
-            logger.info(msg)
+            #msg = "      created backend User " + str(user) + " for email = " + str(email) + " and username = " + str(username)
+            #logger.info(msg)
         request.session['saml_auth_user'] = email
 
         return_to = settings.AUTH_RETURN_TO
-        msg = "       attributes found -- HttpResponseRedirect( " + str(return_to) + ' )'
-        logger.info(msg)
+        #msg = "       attributes found -- HttpResponseRedirect( " + str(return_to) + ' )'
+        #logger.info(msg)
 
         return HttpResponseRedirect(return_to)
     else:
-        msg = "     -- no attributes found render index.html"
-        logger.info(msg)
+        #msg = "     -- no attributes found render index.html"
+        #logger.info(msg)
         #return render(request, 'index.html', {'errors': errors, 'error_reason': error_reason, not_auth_warn: not_auth_warn, 'success_slo': success_slo,
         #                                    'attributes': attributes, 'paint_logout': paint_logout})
         attributes = []

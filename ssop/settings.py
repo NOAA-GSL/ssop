@@ -21,8 +21,8 @@ import pyparsing
 from pathlib import Path
 from django.utils.safestring import mark_safe
 from django.core.exceptions import ImproperlyConfigured
+from django.contrib.admin.sites import AdminSite
 
-# (new in Django 3.2)
 #
 # Either add this into settings.py
 DEFAULT_AUTO_FIELD='django.db.models.AutoField'
@@ -77,24 +77,19 @@ CSRF_TRUSTED_ORIGINS = ['https://sso-dev.noaa.gov', 'https://sso.noaa.gov']
 SAML_FOLDER = os.path.join(BASE_DIR, 'sites/saml')
 AUTH_RETURN_TO = "/ssopsb/adminssopsb/sites/"
 
-
 # NOTE: --- The group names ARE repeated in AUTH_SAML_USER_FLAGS_BY_GROUP -- so if you change one here, be sure to change it in FLAGS_BY_GROUP also
 # LDAP_GROUPS and USER_FLAGS_BY_GROUP much match groupnames in add_groups_and_permissions.py
 AUTH_SAML_GROUPS = {
     "cn=_OAR ALL,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov": {
         "modelslist": [],
-        "viewmodels": ["About", "Attributes", "AttributeGroup", "AuthToken", "Connection", "Organization", "Project", "Sysadmin", "Uniqueuser"]
+        "viewmodels": ["About", "Attributes", "AttributeGroup", "AuthToken", "Connection", "Contact", "Organization", "Project", "Sysadmin", "Uniqueuser"]
     },
-    "cn=_OAR GSL Sysadm,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov": {
-        "modelslist": ["Project"],
+    "cn=_OAR GSL ITS SSG-GSL,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov": {
+        "modelslist": ["Contact", "Key", "Organization", "Project", "Room"],
         "viewmodels": ["About", "Attributes", "AttributeGroup", "AuthToken", "Connection", "Sysadmin", "Uniqueuser"]
     },
     'cn=_OAR ESRL GSL SSOPAdmin,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov': {
-        "modelslist": ["About", "Attributes", "AttributeGroup", "AuthToken", "Connection", "GraphNode", "Key", "Organization", "NodeType", "Project", "Sysadmin", "Uniqueuser", "User"],
-        "viewmodels": []
-    },
-    'cn=_OAR GSL QRBA ADM,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov': {
-        "modelslist": ["About", "Attributes", "AttributeGroup", "AuthToken", "Connection", "GraphNode", "Key", "Organization", "NodeType", "Project", "Sysadmin", "Uniqueuser", "User"],
+        "modelslist": ["About", "Attributes", "AttributeGroup", "AuthToken", "Connection", "Contact", "GraphNode", "Key", "Organization", "NodeType", "Project", "Sysadmin", "Uniqueuser", "User", "Room"],
         "viewmodels": []
     }
 }
@@ -106,9 +101,8 @@ AUTH_SAML_GROUPS = {
 AUTH_SAML_USER_FLAGS_BY_GROUP = {
     "is_active": "cn=_OAR ALL,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
     "is_staff": "cn=_OAR ALL,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
-    "is_sysadmin": "cn=_OAR GSL Sysadm,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
-    "is_ssopadmin": "cn=_OAR ESRL GSL SSOPAdmin,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
-    "is_ssopadmin": "cn=_OAR GSL QRBA ADM,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
+    "is_sysadmin": "_OAR GSL ITS SSG-GSL,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
+    "is_ssopadmin": "cn=_OAR ESRL GSL SSOPAdmin,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov"
 }
 
 # NOTE: mapping is case sensitive
@@ -117,30 +111,45 @@ AUTH_SAML_USER_ATTR_MAP = {
      "member": "isMemberOf"
  }
 
-SSOP_SYSADS = {
-        'holubdev': {'type': 'localdev', 'email': 'kirk.l.holub@gmail.com', 'homeorg': 'noaa', 'divisions': ['oar', 'gsl', 'gsl-its']},
-}
+SSOP_SYSADS = {}
+#SSOP_SYSADS = {
+#        'holubdev': {'type': 'localdev', 'email': 'kirk.l.holub@gmail.com', 'homeorg': 'noaa', 'divisions': ['oar', 'gsl', 'gsl-its']},
+#}
 
 LOCAL_PASSWORD_MINIMUM_LENGTH = 40
 NONE_NAME = "#none"
+NONE_EMAIL = "#none.none@none.tld"
 
 # Expire the session after an hour
 SESSION_COOKIE_AGE = 3600
 LOGOUT_EXPIRY = 2
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True 
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
 
 # email configuration
 # use 25 instead of 587
 # internal routing expects traffic from noreply.gsd@noaa.gov to originate on port 25; which is running TLS
+# DMZ is pwx.noaa.gov domain
 EMAIL_HOST = 'mail.pwx.noaa.gov'
 EMAIL_PORT = 25
 EMAIL_HOST_USER = 'noreply.gsl@noaa.gov'
 EMAIL_USE_TLS = True
-SSOP_ADMIN_EMAIL = "qrba_adm.gsl@noaa.gov"
+SSOP_ADMIN_EMAIL = "ssopadmin.gsl@noaa.gov"
+
+USER_HAS_AUTHENTICATED_SUBJECT = 'SSOPSB Login'
+body = 'Hello firstname,\nWe noticed you logged into SSOP sandbox admin at ymdhms.\n'
+body = body + 'If you did not login at this time, please contact ' + SSOP_ADMIN_EMAIL
+body = body + '\n\nYou can also direct message @Kirk Holub on https://oar-gsl.slack.com'
+USER_HAS_AUTHENTICATED_BODY = body
 
 # https://stackoverflow.com/questions/8023126/how-can-i-test-https-connections-with-django-as-easily-as-i-can-non-https-conne1826
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+#if DEBUG:
+#    SESSION_COOKIE_AGE = 10 * SESSION_COOKIE_AGE
+#else:
+#    CSRF_COOKIE_SECURE = True
+#    SESSION_COOKIE_SECURE = True
 
 # tailored from https://www.webforefront.com/django/setupdjangologging.html
 # unfortunately, cannot use a variable to enforce DRY for basepath
@@ -389,6 +398,17 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+#https://docs.djangoproject.com/en/4.2/ref/contrib/admin/#adminsite-attributes
+#from django.contrib import admin
+#admin.site.site_header = 'My project'                    # default: "Django Administration"
+#admin.site.index_title = 'Features area'                 # default: "Site administration"
+#admin.site.site_title = 'HTML title from adminsitration' # default: "Django site admin"
+
+AdminSite.site_header = 'SSOP Sandbox Administration'
+AdminSite.site_title = 'SSOP sandbox sites admininistration'
+AdminSite.index_title = 'SSOP sandbox administration'
+
+
 # Internationalization
 # https://docs.djangoproject.com/en/3.2/topics/i18n/
 LANGUAGE_CODE = 'en-us'
@@ -433,6 +453,8 @@ with open(os.path.join(BASE_DIR, 'logindotgov/certs/private.pem')) as privcert:
 
 PROJECTS_PREFIX = '/ssopsb/static/projects/'
 PROJECTS_POSTFIX = '/logo'
+CONTACTS_URL = LDG_BASE + 'project_userlist/'
+
 # JWT verification -- using GSL's LetsEncrypt certs
 JWT_BASE_DIR = '/etc/pki/tls/private/gsl-webstage8.gsd.esrl.noaa.gov.'
 certfile = JWT_BASE_DIR + 'pem'
@@ -462,20 +484,31 @@ NODE_TYPE_CHOICES = ['AllConnections', 'Attribute', 'AttributeGroup', 'Browser',
 # If true, [nodenumber] will we prepended to each node label
 LABELNODES = False
 
+# to reduce clutter in the Projects list
+MAXUSERLIST = 3
+
 # supported logo image types
 LOGO_FILETYPES = ['png', 'jpg', 'jpeg']
+LOGO_FILETYPESTR = ''
+for it in LOGO_FILETYPES:
+   LOGO_FILETYPESTR += str(it) + ', '
+LOGO_FILETYPESTR = LOGO_FILETYPESTR[:-2]
 
 HELP_NAME = "A simple, urlsafe (no spaces or special characters) name for this project and its login url."
 HELP_VERBOSE_NAME = "A longer name which does not have to be urlsafe (no spaces or special characters) for this project used for login urls.  It will be set to the project name if 'newproject' remains in the field."
 HELP_RETURN_TO = "The URL to which authenticated users will be sent.  An authentication token string will be appended to the url using a ?"
 HELP_ERROR_REDIRECT = "Users are directed to this url upon a login error.  Override the default value for custom error handling."
-HELP_STATE = "An immutable key used to differentiate projects."
-HELP_CONNECTION_STATE = "An immutable key used to differentiate connections."
+HELP_STATE = "A unique, immutable key used to differentiate projects.  This will be automatically set by the first Save operation."
+HELP_CONNECTION_STATE = "A unique, immutable key used to differentiate connection requests.  This will be automatically set during each connection to login.gov"
 HELP_PUBCERT = "To generate a 2048-bit PEM-encoded public certificate for your project (with a 1-year validity period) run this command:<br>     openssl req -nodes -x509 -days 365 -newkey rsa:2048 -keyout private.pem -out public.crt<br>   This certificate is used to sign json web tokens."
 HELP_DECRYPT_KEY_NAME = "Name of the 32 byte urlsave_64bencoded string generated using fernet.generate_key.<br>   This symetric key is used to encrypt data in transit.<br>  To rekey, delete the key and add a new one manually."
 HELP_DECRYPT_KEY = "A 32 byte urlsave_64bencoded string generated using fernet.generate_key.<br>   This symetric key is used to encrypt data in transit."
-HELP_QUERYPARAM = "If True the html query parameter ?access_token=token_value will be appended to the RETURN_TO url."
+HELP_QUERYPARAM = "If True, the html query parameter specified in the URL query delimiter field and the access token value will be appended onto the RETURN_TO url."
 HELP_DISPLAY_ORDER = "Used to order the projects on the main screen.  Item 1 is top, left.  If order is identical to another project(s), alphabetic sub-sorting will be used."
 HELP_ENABLED = "If True the project's tile will be available on the main screen."
 HELP_EXPIRETOKENS = "If True this project's authorization tokens will be fetched (and expired) upon use, as it will be in production.  If False (the default state), tokens will never expire which is convenitent for development work."
 HELP_ORGANIZATION = "Organization responsible for this project."
+HELP_USERLIST = "A list of authorized users.  Use cmd-click to select multiple users.  Click + to add a new Contact."
+HELP_GRAPHNODE = "Used for connection graphing.  Automatically generated when needed."
+HELP_LOGOIMG = "An image used for the Project's tile on the main page.  Types are limited to: " + LOGO_FILETYPESTR + ".  The image will be resized using a square aspect ratio."
+              

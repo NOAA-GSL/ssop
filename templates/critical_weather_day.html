@@ -1,0 +1,66 @@
+{% extends "base_site_cwd.html" %}
+
+{% block extrahead %}
+        <meta http-equiv="refresh" content="30">
+{% endblock %}
+
+{% block content %}
+  {% if error_msg %}
+     {{ error_msg }}
+  {% endif %}
+
+  <title>Critical Weather Day Status</title>
+  {% if normal %}
+      {% for attr in normal %}
+        <div class="dochead"> <span class="dhead">Status Dashboard</span> </div>
+        <div> <span>last modified: {{attr.4}}</span> </div>
+        <blockquote>
+        <fieldset style="padding-bottom:10px;">
+          <legend>Critical Weather Day Status</legend>
+            <p>Status: <span style="color: {{attr.1}}; background-color: {{attr.2}}; font-size:2.0em; text-align:left;">{{attr.0}}</span>
+            <p>Reason: <span style="font-size:2.0em; text-align:left;">{{attr.3}}</span>
+        </fieldset>
+        </blockquote>
+      {% endfor %}
+  {% else %}
+    {% if attributes %}
+      {% for attr in attributes %}
+        <div class="dochead"> <span class="dhead">Status Dashboard</span> </div>
+        <div> <span>last modified: {{attr.7}}</span> </div>
+        <blockquote>
+          <fieldset style="padding-bottom:10px;">
+            <legend>Critical Weather Day Status</legend>
+              <p>Status: <span style="color: {{attr.1}}; background-color: {{attr.2}}; font-size:2.0em; text-align:left;">{{attr.3}}</span>
+              <p>Reason: <span style="font-size:2.0em; text-align:left;">{{attr.4}}</span>
+              <p>Start: <span style="font-size:2.0em; text-align:left;">{{attr.5}}</span>
+              <p>End: <span style="font-size:2.0em; text-align:left;">{{attr.6}}</span>
+          </fieldset>
+        </blockquote>
+      {% endfor %}
+    {% endif %}
+  {% endif %}
+
+  {% if rooms %}
+    <legend>Data Center Fire Detection / Suppression Status</legend>
+    {% for room in rooms %}
+          <fieldset>
+          <ol>
+            <li style="list-style-type: square; font-size:1.5em; text-align:left;">
+              <label>{{room.0}}</label> -- {{room.1}} 
+            </li>
+          </ol>
+          </fieldset>
+    {% endfor %}
+  {% endif %}
+
+  <blockquote>
+    <fieldset>
+      <p><span style="font-size:2.0em; text-align:left;">For assistance contact <a href="mailto:ssg.gsl@noaa.gov">ssg.gsl@noaa.gov</a></p></span>
+      <form id="edit" method="post" action="https://gsl-webstage8.gsd.esrl.noaa.gov/ssopsb/sites/?sso">
+      <p><span style="font-size:1.0em; text-align:left;">Authentication required:
+      <button style="color: white" type="submit" onclick="https://gsl-webstage8.gsd.esrl.noaa.gov/ssopsb/sites/?sso">Edit FD/SS</button> </form>
+      </span>
+    </fieldset>
+  </blockquote>
+
+{% endblock %}

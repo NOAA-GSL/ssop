@@ -201,7 +201,7 @@ class SAMLBackend:
 
         try:
             user = model.objects.get(**{lookup: query_value})
-        except model.DoesNotExist:
+        except ObjectDoesNotExist:
             user = model(**{query_field: query_value})
             built = True
         else:
@@ -261,7 +261,6 @@ class _SAMLUser:
         self._username = None
         self._request = request
         self._attrs = None
-        self.is_ssopadmin = False
 
         if request is not None:
             email = None
@@ -642,8 +641,11 @@ class _SAMLUser:
                             logger.info(msg)
                             pass
                     if str(usergroup).lower() in str(sgn).lower():
-                        ng = Group.objects.get(name=usergroup)
-                        newgroups.add(ng)
+                        try:
+                            ng = Group.objects.get(name=usergroup)
+                            newgroups.add(ng)
+                        except ObjectDoesNotExist:
+                            pass
             #msg = "    newgroups are: " + str(newgroups)
             #logger.info(msg)
             save_user = False

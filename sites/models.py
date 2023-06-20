@@ -62,19 +62,19 @@ def get_or_add_sysadmin(user, homeorg, orglist):
         if uqs.count() == 0:
             user = uqs[0]
 
-        sa = Sysadmin.objects.filter(username__email=user.email)
-        if sa.count() == 0:
-            sa = Sysadmin(username=user)
+        horg = get_or_add_organization_by_name(homeorg)
+        qs = Sysadmin.objects.filter(username__email=user.email)
+        if qs.count() == 0:
+            sa = Sysadmin(username=user, organization=horg)
             sa.save()
         else:
-            sa = sa[0]
+            sa = qs[0]
 
         for orgname in orglist:
             thisorg = get_or_add_organization_by_name(orgname)
             sa.organizations.add(thisorg)
 
-        horg = get_or_add_organization_by_name(homeorg)
-        sa.organization = horg
+        #sa.organization = horg
         sa.organizations.add(horg)
         sa.save()
     except UserWarning as e:
@@ -349,23 +349,58 @@ class About(models.Model):
             super(About, self).save(*args, **kwargs)
 
 
+class Contact(models.Model):
+    firstname = models.CharField(max_length=150, default='firstname')
+    lastname = models.CharField(max_length=150, default='lastname')
+    email = models.EmailField(null=True, blank=True)
+
+    def __str__(self):
+        return  self.firstname + ' ' + self.lastname + ' (' + str(self.email) + ')'
+
+    def save(self, *args, **kwargs):
+        super(Contact, self).save(*args, **kwargs)
+        if self.initstate():
+            super(Contact, self).save(*args, **kwargs)
+
+    def initstate(self):
+        need_to_update = False
+        if self.email:
+            if 'firstname' in self.firstname:
+                namestr, domain = str(self.email).split('@')
+                namestr = str(namestr).split('.')
+                self.firstname = namestr[0].capitalize()
+                self.lastname = namestr[len(namestr) - 1].capitalize()
+                need_to_update = True
+        return need_to_update
+              
+    def get_value(self):
+        rv = {}
+        rv['firstname'] = self.firstname
+        rv['lastname'] = self.lastname
+        rv['email'] = self.email
+        return str(rv)
+
+
 class Project(models.Model):
     name = models.CharField(max_length=150, default='newproject', help_text=mark_safe(settings.HELP_NAME))
     organization = models.ForeignKey('sites.Organization', null=True, blank=True, on_delete=models.CASCADE, help_text=mark_safe(settings.HELP_ORGANIZATION))
     verbose_name = models.CharField(max_length=150, default='newproject verbose', help_text=mark_safe(settings.HELP_VERBOSE_NAME))
     return_to = models.CharField(max_length=150, default=settings.LOGINDOTGOV_RETURN_TO, help_text=mark_safe(settings.HELP_RETURN_TO))
     queryparam = models.BooleanField(default=True, verbose_name='Token on url', help_text=mark_safe(settings.HELP_QUERYPARAM))
+    querydelimiter = models.CharField(default='?access_token=', max_length=24, verbose_name='URL query delimiter')
     error_redirect = models.CharField(max_length=150, default=settings.LOGINDOTGOV_ERROR_REDIRECT, help_text=mark_safe(settings.HELP_ERROR_REDIRECT))
     state = models.CharField(max_length=50, null=True, default='setme', help_text=mark_safe(settings.HELP_STATE))
     decrypt_key = models.ForeignKey('sites.Key', null=True, blank=True, on_delete=models.CASCADE, help_text=mark_safe(settings.HELP_DECRYPT_KEY_NAME))
     updated = models.DateTimeField(auto_now_add=True)
-    updater = models.CharField(default='None', max_length=200)
     enabled = models.BooleanField(default=False, help_text=mark_safe(settings.HELP_ENABLED))
     expiretokens = models.BooleanField(default=False, help_text=mark_safe(settings.HELP_EXPIRETOKENS))
     display_order = models.IntegerField(default=0, help_text=mark_safe(settings.HELP_DISPLAY_ORDER))
-    graphnode = models.ForeignKey('sites.GraphNode', null=True, blank=True, on_delete=models.SET_NULL)
-    logoimg = models.ImageField(upload_to = get_upload_path, null=True, blank=True)
+    graphnode = models.ForeignKey('sites.GraphNode', null=True, blank=True, on_delete=models.SET_NULL, help_text=mark_safe(settings.HELP_GRAPHNODE))
+    logoimg = models.ImageField(upload_to = get_upload_path, verbose_name="Logo Image", null=True, blank=True, help_text=mark_safe(settings.HELP_LOGOIMG))
     logobin = models.BinaryField(null=True, blank=True)
+    userlist = models.ManyToManyField('sites.Contact', related_name='project_userlist', help_text=mark_safe(settings.HELP_USERLIST))
+    
+    #field_order = ('name', 'organization', 'verbose_name', 'return_to', 'error_redirect', 'enabled', 'display_order', 'decrypt_key', 'logoimg', 'userlist', 'expiretokens', 'graphnode', 'state', 'queryparam', 'querydelimiter', )
 
     def __str__(self):
         return self.name
@@ -461,6 +496,8 @@ class Project(models.Model):
         return need_to_save
 
     def save(self, *args, **kwargs):
+        utcnow = datetime.datetime.utcnow()
+        self.updated = utcnow.replace(tzinfo=pytz.UTC)
         super(Project, self).save(*args, **kwargs)
         if self.initstate():
             super(Project, self).save(*args, **kwargs)
@@ -513,6 +550,29 @@ class Project(models.Model):
     def get_logobin(self):
         return self.logobin
 
+    def users(self):
+        users = []
+        for a in self.userlist.get_queryset():
+            if not str(a).endswith("noaa.gov"):
+                users.append(str(a))
+        if len(users) > int(1):
+            users.sort()
+        if len(users) <= int(settings.MAXUSERLIST):
+            retstr = str(users)
+        else:
+            retstr = str(len(users)) + " users"
+        return retstr
+
+    def contact_emails(self):
+        users = []
+        for a in self.userlist.get_queryset():
+            users.append(str(a.email))
+        return str(users)
+
+    def contacts_url(self):
+        return settings.CONTACTS_URL + str(self.state)[0:4]
+
+
 class Attributes(models.Model):
     fingerprint = models.CharField(max_length=150, default='setme')
     decodedfingerprint = models.CharField(max_length=150, default='setme')
@@ -552,7 +612,8 @@ class Attributes(models.Model):
             need_to_save = True 
 
         if 'showme' in str(self.decodedattrs):
-            if settings.DEBUG:
+            #if settings.DEBUG:
+            if True:
                 fernet = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
                 attrs = bytes_in_string(self.get_attributes())
                 self.decodedattrs = fernet.decrypt(attrs).decode()
@@ -777,18 +838,14 @@ class Uniqueuser(models.Model):
                     else:
                         #da['simplestring'] = []
                         da['simplestring'] = attrs
-                if settings.DEBUG:
-                    self.decodedallattrs = str(da)
-                    self.decodednameattrs = str(uu)
-                else:
-                    self.decodedattrs = "Decoded attributes not available."
-                    self.decodednameattrs = "Decoded attributes not available."
+                self.decodedallattrs = str(da)
+                self.decodednameattrs = str(uu)
             
-            try:
-                if len(da['simplestring']) > int(0):
-                    da['simplestring'].sort()
-            except KeyError:
-                pass
+            #try:
+            #    if len(da['simplestring']) > int(0):
+            #        da['simplestring'].sort()
+            #except KeyError:
+            #    pass
 
             msg = "    initstate uu: " + str(uu)
             logger.info(msg)
@@ -813,7 +870,8 @@ class Uniqueuser(models.Model):
                             except KeyError:
                                 ca['simplestring'] = []
                             ca['simplestring'].append(str(attrs))
-                if settings.DEBUG:
+                #if settings.DEBUG:
+                if True:
                     self.decodedconnattrs = str(ca)
                 else:
                     self.decodedconnattrs = "Decoded attributes not available."
@@ -900,8 +958,7 @@ class OrganizationNode(models.Model):
 
 class Organization(models.Model):
     name = models.CharField(max_length=50, null=True, default='unknownOrganization')
-    contact = models.CharField(max_length=50, null=True, default='unknown Point of Contact')
-    email = models.CharField(max_length=50, null=True, default='unknown email')
+    userlist = models.ManyToManyField('sites.Contact', related_name='organization_userlist')
     projects = models.ManyToManyField(Project, related_name='orgs_projects')
     updated = models.DateTimeField(auto_now_add=True)
     graphnode = models.ForeignKey('sites.GraphNode', null=True, blank=True, on_delete=models.SET_NULL)
@@ -958,6 +1015,18 @@ class Organization(models.Model):
             retlist.append((k,v))
         return retlist
 
+    def contacts(self):
+        users = []
+        for a in self.userlist.get_queryset():
+            users.append(str(a))
+        return str(users)
+
+    def contact_emails(self):
+        users = []
+        for a in self.userlist.get_queryset():
+            users.append(str(a.email))
+        return str(users)
+
 
 class AttributeGroup(models.Model):
     name = models.CharField(max_length=150, default='setme')
@@ -1003,7 +1072,8 @@ class AttributeGroup(models.Model):
         if 'showme' in self.decodedattrs:
             if self.attrs is not None:
                 dattrs = "Decoded attributes not available."
-                if settings.DEBUG:
+                #if settings.DEBUG:
+                if True:
                     dattrs = ''
                     for a in self.get_attrs():
                         dattrs = dattrs + a.clearattrs() + ', '
@@ -1034,6 +1104,7 @@ class AttributeGroup(models.Model):
 
 class GraphNode(models.Model):
     name = models.CharField(max_length=150, default='setme')
+    projectname = models.CharField(max_length=150, default='')
     nodeid = models.IntegerField(default='-1')
     nodetype = models.ForeignKey('sites.NodeType', null=True, blank=True, on_delete=models.CASCADE)
 
@@ -1165,22 +1236,39 @@ def is_user_a_sysad(**kwargs):
     try:
         homeorg = kwargs['request'].session['samlUserdata']['LineOffice'][0]
     except KeyError:
-        homeorg = None
+        homeorg = 'ITS' 
 
     orglist = [] 
     orglist.append(settings.NONE_NAME)
     orglist.append('NOAA')
+    orglist.append('GSL')
     orglist.append(str(homeorg))
+
 
     oukeylist = []
     keys = kwargs['request'].session['samlUserdata'].keys()
+    msg = "    samlUserdata keys: " + str(keys)
+    logger.info(msg)
     for k in kwargs['request'].session['samlUserdata'].keys():
         if str(k).startswith('ou'):
             oukeylist.append(str(k))
     if len(oukeylist) > int(1):
         oukeylist.sort()
+    msg = "    oukeylist: " + str(oukeylist)
+    logger.info(msg)
+    oukeylist = ['ou0', 'ou1', 'ou2']
     for k in oukeylist:
+        msg = "    k = " + str(k)
+        logger.info(msg)
         orglist.append(kwargs['request'].session['samlUserdata'][str(k)][0])
+        msg = "    samlUserdata = " + str(kwargs['request'].session['samlUserdata'][str(k)][0])
+        logger.info(msg)
+    msg = "    user: " + str(user)
+    logger.info(msg)
+    msg = "    homeorg: " + str(homeorg)
+    logger.info(msg)
+    msg = "    orglist: " + str(orglist)
+    logger.info(msg)
     get_or_add_sysadmin(user, homeorg, orglist)
 
 class Sysadmin(models.Model):
@@ -1300,10 +1388,14 @@ def user_has_authenticated_sendemail(**kwargs):
         email = kwargs['user'].email
         firstname = kwargs['user'].first_name
         ymdhms = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-        subject = 'SSOPSB Login'
-        body = 'Hello ' + firstname + ',\nWe noticed you logged into SSOPSB at ' + str(ymdhms) + '.\n'
-        body = body + 'If you did not login at this time, please immediately contact ' + str(settings.SSOP_ADMIN_EMAIL)
-        body = body + '\n\nYou can also direct message @Kirk Holub on https://oar-gsl.slack.com'
+        subject = settings.USER_HAS_AUTHENTICATED_SUBJECT
+        #body = 'Hello ' + firstname + ',\nWe noticed you logged into SSOPSB at ' + str(ymdhms) + '.\n'
+        #body = body + 'If you did not login at this time, please immediately contact ' + str(settings.SSOP_ADMIN_EMAIL)
+        #body = body + '\n\nYou can also direct message @Kirk Holub on https://oar-gsl.slack.com'
+        body = settings.USER_HAS_AUTHENTICATED_BODY
+        body = body.replace( 'firstname', firstname )
+        body = body.replace( 'ymdhms', ymdhms )
+   
         fromaddr = settings.EMAIL_HOST_USER
         toaddr = [email]
         try:
@@ -1316,6 +1408,25 @@ def user_has_authenticated_sendemail(**kwargs):
                 send_mail(subject, body, fromaddr, toaddr, fail_silently=False)
         except SMTPException as e:
             now = datetime.datetime.utcnow()
-            msg = str(now) + ":User has logged in email failed:" + str(email) + ":post_auth_user_has_authenticated"
+            msg = str(now) + ":User has logged in email failed:" + str(email) + ":post_auth_user_has_authenticated:" + str(e)
+            logger.info(msg)
+        except ConnectionRefusedError as e:
+            now = datetime.datetime.utcnow()
+            msg = str(now) + ":User has logged in email failed:" + str(email) + ":post_auth_user_has_authenticated:" + str(e)
             logger.info(msg)
 
+
+STATE_CHOICES = [('Normal', 'Normal operations'), ('Bypass', 'EPO bypass')]
+class Room(models.Model):
+    number = models.CharField(max_length=150, default='number')
+    name = models.CharField(max_length=150, default='name')
+    current_state = models.CharField(max_length=150, choices=STATE_CHOICES)
+
+    def __str__(self):
+        return self.number
+
+    def fullname(self):
+        return self.number + ' (' + self.name + ')'
+
+    def mode(self):
+        return self.current_state

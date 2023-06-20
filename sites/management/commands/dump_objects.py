@@ -3,10 +3,12 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 import pytz
+import os
+import filecmp
 
 from ssop import settings
 
-from sites.models import About, Attributes, AttributeGroup, Connection, Key, Organization, Project
+from sites.models import About, Attributes, AttributeGroup, Connection, Contact, Key, Organization, Project
 #, Uniqueuser
 
 class Command(BaseCommand):
@@ -18,6 +20,7 @@ class Command(BaseCommand):
         allattributes = Attributes.objects.all()
         allattributegroups = AttributeGroup.objects.all()
         allconnection = Connection.objects.all()
+        allcontact = Contact.objects.all()
         allkey = Key.objects.all()
         allproj = Project.objects.all()
         allorg = Organization.objects.all()
@@ -29,7 +32,7 @@ class Command(BaseCommand):
         now = now.replace(' ', '_')
         now = now.replace('-', '', 3)
         data["dumputc"] = now 
-        print("      dumputc = " + str(now))
+        #print("      dumputc = " + str(now))
 
         aret = {}
         data["about"] = aret
@@ -37,7 +40,7 @@ class Command(BaseCommand):
             aret[str(a)] = {}
             for (k,v) in a.get_fields():
                 aret[str(a)][str(k)] = v
-        print("      about = " + str(aret))
+        #print("      about = " + str(aret))
 
         pret = {}
         data["projects"] = pret
@@ -45,13 +48,19 @@ class Command(BaseCommand):
             pret[str(p)] = {}
             for (k,v) in p.get_fields():
                 pret[str(p)][str(k)] = str(v)
-        print("        " + str(len(pret)) + " projects")
+        #print("        " + str(len(pret)) + " projects")
+
+        cret = {}
+        data["contacts"] = cret
+        for v in allcontact:
+            cret[str(v)] = v.get_value()
+        #print("        " + str(len(cret)) + " contacts")
 
         kret = {}
         data["keys"] = kret
         for v in allkey:
             kret[str(v)] = v.get_key()
-        print("        " + str(len(kret)) + " keys")
+        #print("        " + str(len(kret)) + " keys")
 
         oret = {}
         data["organizations"] = oret
@@ -59,7 +68,7 @@ class Command(BaseCommand):
             oret[str(o)] = {}
             for (k,v) in o.get_fields():
                 oret[str(o)][str(k)] = v
-        print("        " + str(len(oret)) + " organizations")
+        #print("        " + str(len(oret)) + " organizations")
 
         atret = {}
         data["attributes"] = atret
@@ -67,7 +76,7 @@ class Command(BaseCommand):
             atret[str(a)] = {}
             for (k,v) in a.get_fields():
                 atret[str(a)][str(k)] = v
-        print("        " + str(len(atret)) + " attributes")
+        #print("        " + str(len(atret)) + " attributes")
 
         agret = {}
         data["attributeGroups"] = agret
@@ -75,7 +84,7 @@ class Command(BaseCommand):
             agret[str(a)] = {}
             for (k,v) in a.get_fields():
                 agret[str(a)][str(k)] = v
-        print("        " + str(len(agret)) + " attributeGroups")
+        #print("        " + str(len(agret)) + " attributeGroups")
 
         data = str(data).replace("'", '"', 1000000)
 
@@ -83,5 +92,18 @@ class Command(BaseCommand):
         fp = open(fname, 'w')
         fp.write(str(data))
         fp.close()
-        print("wrote " + str(fname))
+
+        cname = settings.DBDUMP_ROOT + 'current.json'
+        if not os.path.exists(cname):
+            os.symlink(fname, cname)
+        try:
+           if not filecmp.cmp(fname, cname):
+              if os.path.exists(cname):
+                  os.remove(cname)
+              os.symlink(fname, cname)
+           else:
+              os.remove(fname)
+
+        except OSError:
+           pass
 

@@ -21,9 +21,10 @@ from django.http import HttpResponse, HttpResponseRedirect, response
 from django.shortcuts import redirect, render
 from django.contrib.auth.models import User
 from cryptography.fernet import Fernet
+from bs4 import BeautifulSoup
 
 from sites.forms import ProjectForm
-from sites.models import Attributes, AttributeGroup, AuthToken, GraphNode, NodeType, Connection, Project, Uniqueuser, hash_to_fingerprint, clean_authtokens, runcmdl
+from sites.models import Attributes, AttributeGroup, AuthToken, GraphNode, NodeType, Connection, Project, Uniqueuser, hash_to_fingerprint, clean_authtokens, runcmdl, Room
 
 logger = logging.getLogger('ssop.models')
 
@@ -268,7 +269,7 @@ def ldg_authenticated(request):
         msg = "   ldg_authenticated request: " + str(request)
         logger.info(msg)
 
-    state = None
+    state = 'notautenticated'
     project_state = settings.LOGINDOTGOV_LOGIN_STATE
     # first 10 digits of start the are utc seconds
     connection_state = '1234567890' + project_state
@@ -326,6 +327,8 @@ def ldg_authenticated(request):
 
         if settings.VERBOSE:
             msg = "   assertion: " + str(assertion)
+            logger.info(msg)
+            msg = "   settings.LOGINDOTGOV_PRIVATE_CERT: " + str(settings.LOGINDOTGOV_PRIVATE_CERT)
             logger.info(msg)
 
         signedassertion = jwt.encode(assertion, settings.LOGINDOTGOV_PRIVATE_CERT, algorithm="RS256")  
@@ -434,7 +437,7 @@ def ldg_authenticated(request):
         if RETURN_TO:
             request.session["Authorization"] = "Bearer " + str(authtoken)
             if project.append_access_token(): 
-                return_to = RETURN_TO + "?access_token=" + str(authtoken)
+                return_to = RETURN_TO + str(project.querydelimiter) + str(authtoken)
             if settings.VERBOSE:
                 msg = "    return_to: " + str(return_to)
                 logger.info(msg)
@@ -511,6 +514,104 @@ def index_grid(request):
             alt = 'Logo for project ' + str(p)
             attributes.append((str(p), link, linktext, logo, alt, lmr.next()))
     return render(request, 'sites_grid.html', {'attributes': attributes, 'showplots': False})
+
+def project_userlist(request, projectname):
+
+    now = datetime.datetime.now()
+    now = now.replace(tzinfo=pytz.UTC)
+    html = "<html><body>Oops... It is now %s.</body></html>" % now
+    for p in Project.objects.all():
+        if str(p.state).startswith(projectname):
+            html = '<html><body><pre>{"updated": "' + str(p.updated) + '", "userlist": "' + str(p.contact_emails()) + '"}</pre></body></html>'
+            continue
+    return HttpResponse(html)
+
+def get_cwd(request):
+    now = datetime.datetime.now()
+    now = now.replace(tzinfo=pytz.UTC).strftime('%H%MZ %a %b %d %Y')
+    proxies = {}
+    proxies["http"] = str(settings.HTTP_PROXY)
+    proxies["https"] = str(settings.HTTP_PROXY)
+    headers = {}
+    cwd_response = requests.get("https://www.nco.ncep.noaa.gov/status/cwd/", proxies=proxies, headers=headers)
+    soup = BeautifulSoup(cwd_response.text, "html.parser")
+    cwd_page = soup.select_one('div#home_page_content')
+    opt_normal = soup.find("div", {"class": "col-opt-normal"})
+    opt_critical = soup.find("div", {"class": "col-opt-critical"})
+    msg = '   opt_critical: ' + str(opt_critical)
+    logger.info(msg)
+
+    opt_cwd_header = soup.find("div", {"class": "opt-cwd-header"})
+    msg = '   opt_cwd_header: ' + str(opt_cwd_header)
+    logger.info(msg)
+    opt_cwd_text = soup.find("div", {"class": "text-opt-cwd-header"})
+    msg = '   opt_cwd_text: ' + str(opt_cwd_text)
+    logger.info(msg)
+    opt_cwd_text = str(opt_cwd_text).replace('<div class="text-opt-cwd-header"><br/>', '')
+    opt_cwd_text = opt_cwd_text.replace('<br/><br/></div>', '' )
+    normal = None 
+    if 'none' not in str(opt_critical).lower():
+        opt_status = 'Critical'
+        opt_i = soup.find("div", {"class": "text-opt-i"})
+    
+        #<div class="col-opt-critical">Critical</div>
+        opt_critical = str(opt_critical).replace('<div class="col-opt-critical">', '' )
+        opt_critical = str(opt_critical).replace('</div>', '' )
+        #<div class="text-opt-cwd-header"><br/>Critical Weather Day is in Effect<br/><br/></div>
+        opt_cwd_header = str(opt_cwd_header).replace('<div class="opt-cwd-header"><br/>', '')
+    
+        #<div class="text-opt-i">REASON: <reason> Severe thunderstorm operations across Oklahoma and parts of southwest Kansas. </reason><br/>START: 1200Z Wed Jun 14 2023<br/>END: 1200Z Fri Jun 16 2023<br/><br/></div>
+        opt_reason = str(opt_i).replace('<div class="text-opt-i">REASON: <reason>', '')
+        opt_reason = opt_reason.replace('</reason><br/>', '')
+        opt_start = opt_reason.split('START')
+        opt_end = opt_reason.split('END')
+        opt_start = opt_start[1]
+        opt_reason = opt_reason.split('START')[0]
+    
+        #: 1200Z Wed Jun 14 2023<br/>END: 1200Z Fri Jun 16 2023<br/><br/></div>
+        opt_start = opt_start.replace(': ', '')
+        opt_start = opt_start.split('END')
+        opt_start = opt_start[0]
+        opt_start = opt_start.replace('<br/>', '')
+        
+        #: 1200Z Fri Jun 16 2023<br/><br/></div>
+        # opt_end = opt_reason.split('END')
+        opt_end = opt_end[1]
+        opt_end = opt_end.replace(': ', '')
+        opt_end = opt_end.replace('<br/><br/></div>', '')
+        textcolor = 'white'
+        bgcolor = 'red'
+    else:
+        opt_i = 'None'
+        opt_status = 'Normal'
+        opt_i = 'None'
+        opt_reason = 'None'
+        opt_start = 'None'
+        opt_end = 'None'
+        textcolor = 'black'
+        bgcolor = '#e7f4e4'
+        opt_cwd_header = str(opt_cwd_header).replace('<div class="opt-cwd-header"><br/>', '')
+        opt_cwd_text = str(opt_cwd_text).replace('<br/>', '', 10)
+        normal = []
+        normal.append((opt_status, textcolor, bgcolor, opt_cwd_text, str(now), opt_cwd_header))
+
+    rethtml = "<html><body>It is now %s.<hr>" % now
+    rethtml = str(rethtml) + str(opt_critical) + "<hr>" + str(opt_cwd_header) + "<hr>" + str(opt_i) + "<hr>" + opt_cwd_text + "<hr>" + opt_reason + "<hr>" + opt_start + "<hr>" + opt_end
+    rethtml = rethtml + str(cwd_page) + "</body></html>"
+    #return HttpResponse(rethtml)
+
+    rooms = []
+    for r in Room.objects.all():
+        rooms.append((r.fullname(), r.mode()))
+
+    msg = "  get_cwd normal: " + str(normal)
+    logger.info(msg)
+
+    attributes = []
+    attributes.append((opt_status, textcolor, bgcolor, opt_cwd_text, opt_reason, opt_start, opt_end, str(now)))
+    msg = "  get_cwd attributes: " + str(attributes)
+    logger.info(msg)
+    return render(request, 'critical_weather_day.html', {'normal': normal, 'rooms': rooms, 'attributes': attributes})
 
 #@ensure_csrf_cookie
 def project_ldg(request, projectname):
@@ -720,6 +821,79 @@ def attrsjwt(request, access_token = None):
 
     return render(request, 'signedattrs.html', {'attributes': signedattributes})
 
+def at2uu(request, access_token = None):
+    msg = "   at2uu -- request = " + str(request)
+    logger.info(msg)
+    msg = "   at2uu -- access_token = " + str(access_token)
+    logger.info(msg)
+
+    signedattributes = None
+    if access_token:
+        aqs = AuthToken.objects.filter(token=access_token)
+        authtoken = None
+        if aqs.count() > int(0):
+            authtoken = aqs[0]
+        cqs = Connection.objects.filter(token=authtoken)
+        msg = "   cqs.count() = " + str(cqs.count()) + " for access_token = " + str(access_token)
+        logger.info(msg)
+        if cqs.count() > int(0):
+            connection = cqs[0]
+
+            fetchedtoken = connection.token.get_token()
+            if str(fetchedtoken) not in str(authtoken):
+                msg = "fetchedtoken not equal authtoken for " + str(fetchedtoken) + " and " + str(authtoken)
+                logger.info(msg)
+                signedattributes = str(fetchedtoken)
+                fetchedtoken = None
+          
+            if fetchedtoken:
+                encode_key = connection.project.get_decode_key()
+                user_attributes = connection.get_user_attributes()
+                msg = "    connection get_user_attributes(): " + str(user_attributes)
+                logger.info(msg)
+    
+                dar = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
+                for ua in user_attributes:
+                    aledar = ast.literal_eval(ua)
+                    dataatrest = bytes_in_string(aledar)
+                    #msg = '   dataatrest: ' + str(dataatrest)
+                    #logger.info(msg)
+    
+                    decrypteddata = dar.decrypt(dataatrest).decode()
+                    #msg = "   decrypteddata: " + str(decrypteddata)
+                    #logger.info(msg)
+                    if "{'email" in str(decrypteddata):
+                        if "{'email_verified" in str(decrypteddata):
+                            continue
+                        dd = str(decrypteddata)
+                        msg = "   dd: " + dd 
+                        logger.info(msg)
+                        dd = dd.replace("'", '"', 100)
+                        aledd = ast.literal_eval(dd)
+                        signedattributes = str(aledd['email']) 
+                        continue
+
+    return render(request, 'at2uu.html', {'attributes': signedattributes})
+
+
+# This is the Django view which produced the Data and Links above, plus this Source your currently are reading, using the Template below. 
+# Seems recusive in some way.
+#
+#def demopython(request, access_token = None):
+#    """
+#    user has been authenticated by login.gov, so we can retrive their attributes via a JWT 
+#    """
+#
+#    # return structure supporting a django template named demoapp.html
+#    data = {}
+#    data['request'] = str(request)
+#    if access_token is None:
+#                        signedattributes = signedattributes.split(": ")
+#                        signedattributes = signedattributes.replace("'", "")
+#                        signedattributes = signedattributes.replace("'}", "")
+#
+#    return render(request, 'signedattrs.html', {'attributes': signedattributes})
+
 
 # This is the Django view which produced the Data and Links above, plus this Source your currently are reading, using the Template below. 
 # Seems recusive in some way.
@@ -733,8 +907,8 @@ def demopython(request, access_token = None):
     data = {}
     data['request'] = str(request)
     if access_token is None:
-        if '?access_token=' in str(request):
-            (junk, access_token) = str(request).split('?access_token=')
+        if 'access_token=' in str(request):
+            (junk, access_token) = str(request).split('access_token=')
             access_token = access_token.replace("\'>", "")
     data['access_token'] = str(access_token)
 
@@ -1007,10 +1181,10 @@ def ldg_auth_error(request):
     data = "Oopps, something went wrong!"
     return render(request, 'demoapp.html', {'data': data})
 
-def graphnodeByNameAndNodeType(name, nodetype):
-    qs = GraphNode.objects.filter(name=name, nodetype=nodetype)
+def graphnodeByLabelPnameNodetype(name, pname, nodetype):
+    qs = GraphNode.objects.filter(name=name, projectname=pname, nodetype=nodetype)
     if qs.count() == int(0):
-        gn = GraphNode(name=name, nodetype=nodetype)
+        gn = GraphNode(name=name, projectname=pname, nodetype=nodetype)
         gn.save()
     else:
         gn = qs[0]
@@ -1182,7 +1356,7 @@ def make_connections_by_project_img():
     GraphNode.objects.all().delete()
 
     acstr = 'All Connections' 
-    gn = graphnodeByNameAndNodeType(acstr, allconnectionsnodetype)
+    gn = graphnodeByLabelPnameNodetype(acstr, 'cpb', allconnectionsnodetype)
     all_connectionsnid = int(gn.nid())
     if settings.LABELNODES:
         nodemapping_by_project['cbp'][all_connectionsnid] = '[' + str(all_connectionsnid) + '] ' + acstr
@@ -1192,7 +1366,7 @@ def make_connections_by_project_img():
     nodesizes_by_project['cbp'][all_connectionsnid] = numconnections
 
     uulabel = 'All Unique Users' 
-    gn = graphnodeByNameAndNodeType(uulabel, uniqueusernodetype)
+    gn = graphnodeByLabelPnameNodetype(uulabel, 'cpb', uniqueusernodetype)
     alluugnid = int(gn.nid())
     if settings.LABELNODES:
         nodemapping_by_project['cbp'][alluugnid] = '[' + str(alluugnid) + '] ' + uulabel + ' (' + str(numuniqueusers) + ')'
@@ -1203,10 +1377,16 @@ def make_connections_by_project_img():
 
     seen = {}
     seen_keys_by_project = {} 
+
+    pname = 'cpb' 
+    gn = graphnodeByLabelPnameNodetype(pname, pname, projectnodetype)
+    pnnodenum = int(gn.nid())
+    nodemapping_by_project[pname][pnnodenum] = pname
+
     for pnk in conn_by_project.keys():
         pname = str(pnk)
         # this project to all connections
-        gn = graphnodeByNameAndNodeType(pname, projectnodetype)
+        gn = graphnodeByLabelPnameNodetype(pname, pname, projectnodetype)
         pnnodenum = int(gn.nid())
         nodemapping_by_project[pname][pnnodenum] = pname
         nodemapping_by_project['cbp'][pnnodenum] = pname
@@ -1224,13 +1404,18 @@ def make_connections_by_project_img():
             nodemapping_by_project[pname][alluugnid] = uulabel + ' (' + str(numuus) + ')'
 
         try:
+            test = seen[(pnnodenum, all_connectionsnid)]
+        except KeyError:
+            seen[(pnnodenum, all_connectionsnid)] = {}
+        try:
             prev = seen[(pnnodenum, all_connectionsnid)]['weight']
         except KeyError:
             prev = int(0) 
             attrs = {}
             attrs['name'] = pname
             attrs['type'] = 'P2AC' 
-            attrs['pname'] = pname 
+            attrs['pname'] = 'P2AC' 
+            attrs['weight'] = prev 
             seen[(pnnodenum, all_connectionsnid)] = attrs 
         seen[(pnnodenum, all_connectionsnid)]['weight'] = prev + int(1)
 
@@ -1246,7 +1431,7 @@ def make_connections_by_project_img():
                 
             # this project to each unique user
             for uu in conn_by_project[pname][k].keys():
-                uugn = graphnodeByNameAndNodeType(str(uu), uniqueusernodetype)
+                uugn = graphnodeByLabelPnameNodetype(str(uu), pname, uniqueusernodetype)
                 uugnid = int(uugn.nid())
                 try:
                     prev = seen[(pnnodenum, uugnid)]['weight']
@@ -1265,7 +1450,7 @@ def make_connections_by_project_img():
     for pn in conn_by_project.keys():
         pname = str(pn)
         proj_num_uu = len(conn_by_project[pname]['uusers'].keys())
-        pgn = graphnodeByNameAndNodeType(pname, projectnodetype)
+        pgn = graphnodeByLabelPnameNodetype(pname, pname, projectnodetype)
         pnnodenum = int(pgn.nid())
         for k in conn_by_project[pname].keys():
             if str(k) == 'weight':
@@ -1273,7 +1458,7 @@ def make_connections_by_project_img():
 
             for uu in conn_by_project[pname][k].keys():
                 uuname = str(uu)
-                gn = graphnodeByNameAndNodeType(str(uu), uniqueusernodetype)
+                gn = graphnodeByLabelPnameNodetype(str(uu), pname, uniqueusernodetype)
                 unn = int(gn.nid())
                 nodemapping_by_project[pname][unn] = uuname 
                 nodemapping_by_project['cbp'][unn] = uuname
@@ -1320,7 +1505,7 @@ def make_connections_by_project_img():
 
                 # this uniqueuser to All uniqueusers for this project
                 uulabel = str(pname) + ' Unique Users' 
-                gn = graphnodeByNameAndNodeType(uulabel, uniqueusernodetype)
+                gn = graphnodeByLabelPnameNodetype(uulabel, pname, uniqueusernodetype)
                 projalluugnid = int(gn.nid())
                 all_projalluugnids.add(projalluugnid)
                 if settings.LABELNODES:
@@ -1346,7 +1531,7 @@ def make_connections_by_project_img():
     total_by_uu_pn = {}
     for pn in conn_by_project.keys():
         pname = str(pn)
-        gn = graphnodeByNameAndNodeType(pname, projectnodetype)
+        gn = graphnodeByLabelPnameNodetype(pname, pname, projectnodetype)
         pnn = int(gn.nid())
         if settings.LABELNODES:
             nodemapping_by_project[pname][pnn] = '[' + str(pnn) + '] ' + nodemapping_by_project[pname][pnn] + ' (' + str(conn_by_project[pname]['weight']) + ')'
@@ -1379,7 +1564,7 @@ def make_connections_by_project_img():
 
     for uu in total_by_uu_pn.keys():
         uuname = str(uu)
-        gn = graphnodeByNameAndNodeType(uuname, uniqueusernodetype)
+        gn = graphnodeByLabelPnameNodetype(uuname, 'cpb', uniqueusernodetype)
         unn = int(gn.nid())
         uutotal = int(0)
         for pn in total_by_uu_pn[uu].keys():
@@ -1434,12 +1619,12 @@ def make_connections_by_project_img():
         try:
             test = edges_by_uu[pname]
         except KeyError:
-            edges_by_uu[pname] = []
+            edges_by_uu[pname] = [] 
 
         try:
             test = edges_by_pac[pname]
         except KeyError:
-            edges_by_pac[pname] = []
+            edges_by_pac[pname] = [] 
 
         for k in seen_keys_by_project[pnk]:
             (b, e) = str(k).split(', ')
@@ -1451,12 +1636,11 @@ def make_connections_by_project_img():
 
             if 'P2AC' in type:
                 try:
-                    a['weight'] = int(conn_by_uu[suu]['projects'][pname])
+                    a['weight'] = a['weight'] + int(conn_by_uu[suu]['weight'])
+                    if str((b, e, a)) not in str(edges_by_pac):
+                        edges_by_pac[pname].append((b, e, a))
                 except KeyError:
                     pass
-                if str((b, e, a)) not in str(edges_by_pac):
-                    edges_by_pac[pname].append((b, e, a))
-
             if pname in seen[k]['pname']:
                 if 'P2UU' in type:
                     a['weight'] = int(conn_by_uu[suu]['weight'])
@@ -1473,14 +1657,6 @@ def make_connections_by_project_img():
     
                 if 'U2AC' in type:
                     a['weight'] = int(conn_by_project[pname]['uusers'][suu])
-    
-                if 'P2AC' in type:
-                    try:
-                        a['weight'] = a['weight'] + int(conn_by_uu[suu]['projects'][pname])
-                    except KeyError:
-                        pass
-                    if str((b, e, a)) not in str(edges_by_pac):
-                        edges_by_pac[pname].append((b, e, a))
     
                 if pname in seen[k]['pname']:
                     edges_by_project[pname].append((b, e, a))
@@ -1508,11 +1684,11 @@ def make_connections_by_project_img():
 
         if 'P2AC' in type:
             try:
-                a['weight'] = int(conn_by_uu[suu]['projects'][pname])
+                a['weight'] = a['weight'] + int(conn_by_uu[suu]['projects'][pname])
+                if str((b, e, a)) not in str(edges_by_pac[pname]):
+                    edges_by_pac[pname].append((b, e, a))
             except KeyError:
                 pass
-            if str((b, e, a)) not in str(edges_by_pac[pname]):
-                edges_by_pac[pname].append((b, e, a))
 
         if pname in seen[k]['pname']:
             if 'P2UU' in type:
@@ -1521,7 +1697,7 @@ def make_connections_by_project_img():
                 except KeyError:
                     pass
     
-            if 'U2P' in type:
+            if 'U2P' in type or 'P2AC' in type:
                 try:
                     a['weight'] = int(conn_by_uu[suu]['projects'][pname])
                 except KeyError:
@@ -1543,14 +1719,6 @@ def make_connections_by_project_img():
                 a['weight'] = int(seen[k]['weight'])
                 edges_by_uu['cbp'].append((b, e, a))
     
-            if 'P2AC' in type:
-                try:
-                    a['weight'] = a['weight'] + int(conn_by_uu[suu]['projects'][pname])
-                except KeyError:
-                    pass
-                if str((b, e, a)) not in str(edges_by_pac[pname]):
-                    edges_by_pac[pname].append((b, e, a))
-
             a['type'] = type
             a['pname'] = pname
             a['uuname'] = suu 
@@ -1629,7 +1797,7 @@ def make_connections_by_project_img():
 
             #this_label = this_label + ' to ' + str(np) + ' project'
             this_label = this_label + ' to ' + str(np) + ' P'
-            if np > int(1):
+            if len(this_label) > int(0) and np > int(1):
                this_label = this_label + 's'
 
             uuedge_labels[k] = this_label
@@ -1648,7 +1816,7 @@ def make_connections_by_project_img():
             else:
                plural = False 
             this_label = str(this_label)
-            if plural:
+            if len(this_label) > int(0) and plural:
                this_label = this_label + 's'
             pacedge_labels[k] = this_label
 
@@ -2229,8 +2397,6 @@ def index(request):
         lenshortened = len(shortened)
         shortened = login[0:100] + '... ' + str(lenshortened) + ' chars removed ...' + login[-15:]
         msg = '  sso login HttpResponseRedirect( ' + str(shortened) + ' )'
-        logger.info(msg)
-        msg = '  sso login HttpResponseRedirect( ' + str(login) + ' )'
         logger.info(msg)
         return HttpResponseRedirect(login)
 

@@ -40,3 +40,8 @@ def server_url(request):
 
     extra_context = {'server_url': server}
     return extra_context
+
+def cwd_refresh_rate(request):
+    extra_context = {'cwd_refresh_rate': settings.PAGE_REFRESH_RATE}
+    return extra_context
+

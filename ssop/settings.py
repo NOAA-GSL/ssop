@@ -295,6 +295,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'ssop.context_processors.deploy_env',
                 'ssop.context_processors.server_url',
+                'ssop.context_processors.cwd_refresh_rate',
             ],
         },
     },
@@ -511,4 +512,12 @@ HELP_ORGANIZATION = "Organization responsible for this project."
 HELP_USERLIST = "A list of authorized users.  Use cmd-click to select multiple users.  Click + to add a new Contact."
 HELP_GRAPHNODE = "Used for connection graphing.  Automatically generated when needed."
 HELP_LOGOIMG = "An image used for the Project's tile on the main page.  Types are limited to: " + LOGO_FILETYPESTR + ".  The image will be resized using a square aspect ratio."
-              
+
+#  
+CWD_PREV = "uploads/ncocwd.txt"
+CWD_URL = "https://www.nco.ncep.noaa.gov/status/cwd/"
+PAGE_REFRESH_RATE = 30 
+     
+#
+UPDATED = 1033 
+

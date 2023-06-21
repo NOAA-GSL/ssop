@@ -526,15 +526,40 @@ def project_userlist(request, projectname):
             continue
     return HttpResponse(html)
 
-def get_cwd(request):
-    now = datetime.datetime.now()
-    now = now.replace(tzinfo=pytz.UTC).strftime('%H%MZ %a %b %d %Y')
+def get_and_save_cwd_page():
     proxies = {}
     proxies["http"] = str(settings.HTTP_PROXY)
     proxies["https"] = str(settings.HTTP_PROXY)
     headers = {}
-    cwd_response = requests.get("https://www.nco.ncep.noaa.gov/status/cwd/", proxies=proxies, headers=headers)
-    soup = BeautifulSoup(cwd_response.text, "html.parser")
+    response = requests.get(settings.CWD_URL, proxies=proxies, headers=headers)
+    fh = open(settings.CWD_PREV, 'w')
+    fh.write(response.text)
+    fh.close()
+    return response.text
+
+def fetch_cwd_page():
+    if not os.path.exists(settings.CWD_PREV):
+       response = get_and_save_cwd_page()
+
+    # Assume page only refreshed at synoptic cadence of four per day
+    oldtime = os.path.getmtime(settings.CWD_PREV)
+    utcnow = datetime.datetime.utcnow().strftime("%s")
+    timetoreload = int(utcnow) - int(oldtime)
+    msg = "    timetoreload: " + str(timetoreload)
+    logger.info(msg)
+    if timetoreload > int(6 * 3600):
+        response = get_and_save_cwd_page()
+    else:
+        fh = open(settings.CWD_PREV, 'r')
+        response = fh.read()
+        fh.close()
+    return response
+
+def get_cwd(request):
+    now = datetime.datetime.now()
+    now = now.replace(tzinfo=pytz.UTC).strftime('%H%MZ %a %b %d %Y')
+    cwd_response = fetch_cwd_page()
+    soup = BeautifulSoup(cwd_response, "html.parser")
     cwd_page = soup.select_one('div#home_page_content')
     opt_normal = soup.find("div", {"class": "col-opt-normal"})
     opt_critical = soup.find("div", {"class": "col-opt-critical"})

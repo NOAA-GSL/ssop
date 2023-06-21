@@ -1,7 +1,11 @@
 {% extends "base_site_cwd.html" %}
 
 {% block extrahead %}
-        <meta http-equiv="refresh" content="30">
+  {% if cwd_refresh_rate %}
+    <meta http-equiv="refresh" content="{{cwd_refresh_rate}}">
+  {% else %}
+    <meta http-equiv="refresh" content="30">
+  {% endif %}
 {% endblock %}
 
 {% block content %}

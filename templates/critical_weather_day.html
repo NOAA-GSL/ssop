@@ -16,20 +16,22 @@
   <title>Critical Weather Day Status</title>
   {% if normal %}
       {% for attr in normal %}
-        <div class="dochead"> <span class="dhead">Status Dashboard</span> </div>
+        <div class="dochead"> <span class="dhead" style="font-size:2.5em">Status Dashboard</span> </div>
         <div> <span>last modified: {{attr.4}}</span> </div>
         <blockquote>
         <fieldset style="padding-bottom:10px;">
           <legend>Critical Weather Day Status</legend>
             <p>Status: <span style="color: {{attr.1}}; background-color: {{attr.2}}; font-size:2.0em; text-align:left;">{{attr.0}}</span>
             <p>Reason: <span style="font-size:2.0em; text-align:left;">{{attr.3}}</span>
+            <p>Outlook: <span style="font-size:1.7em; text-align:left;">{{attr.6}}</span>
+            <p>Source: <span style="font-size:1.7em; text-align:left;"><a href="https://www.nco.ncep.noaa.gov/status/cwd/" target="new">NCEP Central Operations Critical Weather Day Status (opens a new page)</a></span>
         </fieldset>
         </blockquote>
       {% endfor %}
   {% else %}
     {% if attributes %}
       {% for attr in attributes %}
-        <div class="dochead"> <span class="dhead">Status Dashboard</span> </div>
+        <div class="dochead"> <span class="dhead" style="font-size:2.5em">Status Dashboard</span> </div>
         <div> <span>last modified: {{attr.7}}</span> </div>
         <blockquote>
           <fieldset style="padding-bottom:10px;">
@@ -38,6 +40,8 @@
               <p>Reason: <span style="font-size:2.0em; text-align:left;">{{attr.4}}</span>
               <p>Start: <span style="font-size:2.0em; text-align:left;">{{attr.5}}</span>
               <p>End: <span style="font-size:2.0em; text-align:left;">{{attr.6}}</span>
+              <p>Outlook: <span style="font-size:1.7em; text-align:left;">{{attr.8}}</span>
+              <p>Source: <span style="font-size:1.7em; text-align:left;"><a href="https://www.nco.ncep.noaa.gov/status/cwd/" target="new">NCEP Central Operations Critical Weather Day Status (opens a new page)</a></span>
           </fieldset>
         </blockquote>
       {% endfor %}
@@ -45,16 +49,15 @@
   {% endif %}
 
   {% if rooms %}
-    <legend>Data Center Fire Detection / Suppression Status</legend>
-    {% for room in rooms %}
-          <fieldset>
-          <ol>
-            <li style="list-style-type: square; font-size:1.5em; text-align:left;">
-              <label>{{room.0}}</label> -- {{room.1}} 
-            </li>
-          </ol>
-          </fieldset>
-    {% endfor %}
+    <blockquote>
+      <fieldset style="padding-bottom:10px;">
+        <legend>Data Center Fire Detection / Supression System Status</legend>
+        {% for room in rooms %}
+           <p> * <span style="font-size:2.0em; text-align:left;">{{room.0}} -- </span>
+           <span style="font-size:2.0em; text-align:left; color: {{room.2}}; background-color: {{room.3}};">{{room.1}}</span>
+        {% endfor %}
+      </fieldset>
+    </blockquote>
   {% endif %}
 
   <blockquote>

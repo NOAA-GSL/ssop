@@ -284,18 +284,18 @@
 <!--***CWD Outlook***-->
      <div class="hd-opt-d">Outlook
 
-     <div class="hd-opt-e">Updated 1620Z Wed Jun 21 2023</div>
+     <div class="hd-opt-e">Updated 0844Z Wed Jul 12 2023</div>
 
      </div>
 
      <div class="row-opt-e-d">
-     <div class="col-opt-l-d-Normal">12Z Wed Jun 21 - 12Z Thu Jun 22</div><div class="col-opt-l-d-Normal">12Z Thu Jun 22 - 12Z Fri Jun 23</div><div class="col-opt-l-d-Normal">12Z Fri Jun 23 - 12Z Sat Jun 24</div>     </div>   
+     <div class="col-opt-l-d-Normal">12Z Wed Jul 12 - 12Z Thu Jul 13</div><div class="col-opt-l-d-Normal">12Z Thu Jul 13 - 12Z Fri Jul 14</div><div class="col-opt-l-d-Normal">12Z Fri Jul 14 - 12Z Sat Jul 15</div>     </div>   
      <div class="row-opt-e">
      <div class="col-opt-l-Normal"><div class="row-opt-d"><div class="col-opt-w">Normal</div><div class="col-opt-x"></div></div></div><div class="col-opt-l-Normal"><div class="row-opt-d"><div class="col-opt-w">Normal</div><div class="col-opt-x"></div></div></div><div class="col-opt-l-Normal"><div class="row-opt-d"><div class="col-opt-w">Normal</div><div class="col-opt-x"></div></div></div>     </div>
      
      <div class="row-opt-e-di">
        
-Critical Weather Day is not expected in the next 3 days.
+Critical Weather Day is not scheduled for the next 3 days. However, NCEP will be monitoring the need for CWD with the threat of severe weather over the Middle Mississippi Valley on Wednesday.
      </div>
 
      <div class="hd-opt-d">Hazards</div>
@@ -475,7 +475,7 @@ Critical Weather Day is not expected in the next 3 days.
 
      <!--Display times page was loaded-->
   <div class="loadtime">
-  Page loaded: 17:10 UTC &nbsp; | &nbsp; 10:10 am Pacific &nbsp; | &nbsp; 11:10 am Mountain &nbsp; | &nbsp; 12:10 pm Central &nbsp; | &nbsp; 1:10 pm Eastern   </div>
+  Page loaded: 17:12 UTC &nbsp; | &nbsp; 10:12 am Pacific &nbsp; | &nbsp; 11:12 am Mountain &nbsp; | &nbsp; 12:12 pm Central &nbsp; | &nbsp; 1:12 pm Eastern   </div>
 
       
 

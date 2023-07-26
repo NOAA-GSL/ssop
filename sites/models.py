@@ -1247,28 +1247,14 @@ def is_user_a_sysad(**kwargs):
 
     oukeylist = []
     keys = kwargs['request'].session['samlUserdata'].keys()
-    msg = "    samlUserdata keys: " + str(keys)
-    logger.info(msg)
     for k in kwargs['request'].session['samlUserdata'].keys():
         if str(k).startswith('ou'):
             oukeylist.append(str(k))
     if len(oukeylist) > int(1):
         oukeylist.sort()
-    msg = "    oukeylist: " + str(oukeylist)
-    logger.info(msg)
     oukeylist = ['ou0', 'ou1', 'ou2']
     for k in oukeylist:
-        msg = "    k = " + str(k)
-        logger.info(msg)
         orglist.append(kwargs['request'].session['samlUserdata'][str(k)][0])
-        msg = "    samlUserdata = " + str(kwargs['request'].session['samlUserdata'][str(k)][0])
-        logger.info(msg)
-    msg = "    user: " + str(user)
-    logger.info(msg)
-    msg = "    homeorg: " + str(homeorg)
-    logger.info(msg)
-    msg = "    orglist: " + str(orglist)
-    logger.info(msg)
     get_or_add_sysadmin(user, homeorg, orglist)
 
 class Sysadmin(models.Model):
@@ -1317,7 +1303,6 @@ def post_auth_user_has_authenticated(sender, **kwargs):
     logger.info(msg)
     is_user_a_sysad(**kwargs)
     user_has_authenticated_sendemail(**kwargs)
-
 
 @receiver(user_login_failure)
 def post_auth_user_login_failure(sender, **kwargs):
@@ -1372,7 +1357,7 @@ def user_has_authenticated_sendemail(**kwargs):
     hashedtoken = hl.hexdigest()
     existingtoken = 'none'
 
-    fname = '/tmp/ssop_' + str(kwargs['user'].id) + '.txt'
+    fname = 'uploads/ssopuid_' + str(kwargs['user'].id) + '.txt'
     try:
         if os.path.exists(fname):
             fh = open(fname, 'r')
@@ -1389,9 +1374,6 @@ def user_has_authenticated_sendemail(**kwargs):
         firstname = kwargs['user'].first_name
         ymdhms = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
         subject = settings.USER_HAS_AUTHENTICATED_SUBJECT
-        #body = 'Hello ' + firstname + ',\nWe noticed you logged into SSOPSB at ' + str(ymdhms) + '.\n'
-        #body = body + 'If you did not login at this time, please immediately contact ' + str(settings.SSOP_ADMIN_EMAIL)
-        #body = body + '\n\nYou can also direct message @Kirk Holub on https://oar-gsl.slack.com'
         body = settings.USER_HAS_AUTHENTICATED_BODY
         body = body.replace( 'firstname', firstname )
         body = body.replace( 'ymdhms', ymdhms )
@@ -1402,15 +1384,11 @@ def user_has_authenticated_sendemail(**kwargs):
             if settings.DEBUG:
                 msg = "DEBUG -- running: send_mail(subject, body, fromaddr, toaddr, fail_silently=False)"
                 msg = msg + ' -- toaddr: ' + str(toaddr)
-                logger.debug(msg)
-                send_mail(subject, body, fromaddr, toaddr, fail_silently=False)
-            else:
-                send_mail(subject, body, fromaddr, toaddr, fail_silently=False)
-        except SMTPException as e:
-            now = datetime.datetime.utcnow()
-            msg = str(now) + ":User has logged in email failed:" + str(email) + ":post_auth_user_has_authenticated:" + str(e)
-            logger.info(msg)
-        except ConnectionRefusedError as e:
+                msg = msg + ' -- fromaddr: ' + str(fromaddr)
+                msg = msg + ' -- subject: ' + str(subject)
+                logger.info(msg)
+            send_mail(subject, body, fromaddr, toaddr, fail_silently=False)
+        except Exception as e:
             now = datetime.datetime.utcnow()
             msg = str(now) + ":User has logged in email failed:" + str(email) + ":post_auth_user_has_authenticated:" + str(e)
             logger.info(msg)
@@ -1430,3 +1408,12 @@ class Room(models.Model):
 
     def mode(self):
         return self.current_state
+
+    def colors(self):
+        if 'normal' in str(self.mode()).lower():
+           # light green used by NCO
+           colors = ('black', '#e7f4e4')
+        else:
+           colors = ('white', 'red')
+        return colors
+

@@ -541,13 +541,10 @@ def fetch_cwd_page():
     if not os.path.exists(settings.CWD_PREV):
        response = get_and_save_cwd_page()
 
-    # Assume page only refreshed at synoptic cadence of four per day
     oldtime = os.path.getmtime(settings.CWD_PREV)
     utcnow = datetime.datetime.utcnow().strftime("%s")
     timetoreload = int(utcnow) - int(oldtime)
-    msg = "    timetoreload: " + str(timetoreload)
-    logger.info(msg)
-    if timetoreload > int(6 * 3600):
+    if timetoreload > int(settings.CWD_FETCH_INTERVAL):
         response = get_and_save_cwd_page()
     else:
         fh = open(settings.CWD_PREV, 'r')
@@ -557,23 +554,20 @@ def fetch_cwd_page():
 
 def get_cwd(request):
     now = datetime.datetime.now()
-    now = now.replace(tzinfo=pytz.UTC).strftime('%H%MZ %a %b %d %Y')
+    now = now.replace(tzinfo=pytz.timezone('US/Mountain')).strftime('%H%M %a %b %d %Y US/Mountain')
     cwd_response = fetch_cwd_page()
     soup = BeautifulSoup(cwd_response, "html.parser")
     cwd_page = soup.select_one('div#home_page_content')
     opt_normal = soup.find("div", {"class": "col-opt-normal"})
     opt_critical = soup.find("div", {"class": "col-opt-critical"})
-    msg = '   opt_critical: ' + str(opt_critical)
-    logger.info(msg)
 
     opt_cwd_header = soup.find("div", {"class": "opt-cwd-header"})
-    msg = '   opt_cwd_header: ' + str(opt_cwd_header)
-    logger.info(msg)
     opt_cwd_text = soup.find("div", {"class": "text-opt-cwd-header"})
-    msg = '   opt_cwd_text: ' + str(opt_cwd_text)
-    logger.info(msg)
     opt_cwd_text = str(opt_cwd_text).replace('<div class="text-opt-cwd-header"><br/>', '')
     opt_cwd_text = opt_cwd_text.replace('<br/><br/></div>', '' )
+    opt_cwd_outlook = soup.find("div", {"class": "row-opt-e-di"})
+    opt_cwd_outlook = str(opt_cwd_outlook).replace('<div class="row-opt-e-di">', '')
+    opt_cwd_outlook = opt_cwd_outlook.replace('</div>', '' )
     normal = None 
     if 'none' not in str(opt_critical).lower():
         opt_status = 'Critical'
@@ -618,24 +612,20 @@ def get_cwd(request):
         opt_cwd_header = str(opt_cwd_header).replace('<div class="opt-cwd-header"><br/>', '')
         opt_cwd_text = str(opt_cwd_text).replace('<br/>', '', 10)
         normal = []
-        normal.append((opt_status, textcolor, bgcolor, opt_cwd_text, str(now), opt_cwd_header))
+        normal.append((opt_status, textcolor, bgcolor, opt_cwd_text, str(now), opt_cwd_header, opt_cwd_outlook))
 
     rethtml = "<html><body>It is now %s.<hr>" % now
     rethtml = str(rethtml) + str(opt_critical) + "<hr>" + str(opt_cwd_header) + "<hr>" + str(opt_i) + "<hr>" + opt_cwd_text + "<hr>" + opt_reason + "<hr>" + opt_start + "<hr>" + opt_end
-    rethtml = rethtml + str(cwd_page) + "</body></html>"
+    rethtml = rethtml + str(opt_cwd_outlook) + str(cwd_page) + "</body></html>"
     #return HttpResponse(rethtml)
 
     rooms = []
     for r in Room.objects.all():
-        rooms.append((r.fullname(), r.mode()))
-
-    msg = "  get_cwd normal: " + str(normal)
-    logger.info(msg)
+        rcolors = r.colors()
+        rooms.append((r.fullname(), r.mode(), rcolors[0], rcolors[1]))
 
     attributes = []
-    attributes.append((opt_status, textcolor, bgcolor, opt_cwd_text, opt_reason, opt_start, opt_end, str(now)))
-    msg = "  get_cwd attributes: " + str(attributes)
-    logger.info(msg)
+    attributes.append((opt_status, textcolor, bgcolor, opt_cwd_text, opt_reason, opt_start, opt_end, str(now), opt_cwd_outlook))
     return render(request, 'critical_weather_day.html', {'normal': normal, 'rooms': rooms, 'attributes': attributes})
 
 #@ensure_csrf_cookie
@@ -899,26 +889,6 @@ def at2uu(request, access_token = None):
                         continue
 
     return render(request, 'at2uu.html', {'attributes': signedattributes})
-
-
-# This is the Django view which produced the Data and Links above, plus this Source your currently are reading, using the Template below. 
-# Seems recusive in some way.
-#
-#def demopython(request, access_token = None):
-#    """
-#    user has been authenticated by login.gov, so we can retrive their attributes via a JWT 
-#    """
-#
-#    # return structure supporting a django template named demoapp.html
-#    data = {}
-#    data['request'] = str(request)
-#    if access_token is None:
-#                        signedattributes = signedattributes.split(": ")
-#                        signedattributes = signedattributes.replace("'", "")
-#                        signedattributes = signedattributes.replace("'}", "")
-#
-#    return render(request, 'signedattrs.html', {'attributes': signedattributes})
-
 
 # This is the Django view which produced the Data and Links above, plus this Source your currently are reading, using the Template below. 
 # Seems recusive in some way.
@@ -2391,8 +2361,8 @@ def prepare_django_request(request):
 
 #@ensure_csrf_cookie
 def index(request):
-    msg = 'in index -- request = ' + str(request)
-    logger.info(msg)
+    #msg = 'in index -- request = ' + str(request)
+    #logger.info(msg)
 
     req = prepare_django_request(request)
 
@@ -2405,8 +2375,8 @@ def index(request):
     #logger.info(msg)
 
     auth = noaaOneLogin_Saml2_Auth(req, custom_base_path=settings.SAML_FOLDER)
-    msg = '   auth: ' + str(auth)
-    logger.info(msg)
+    #msg = '   auth: ' + str(auth)
+    #logger.info(msg)
 
     errors = []
     error_reason = None
@@ -2415,14 +2385,14 @@ def index(request):
     paint_logout = False
     if 'sso' in req['get_data']:
         auth = noaaOneLogin_Saml2_Auth(req, custom_base_path=settings.SAML_FOLDER)
-        msg = '  SAML auth: ' + str(auth)
-        logger.info(msg)
+        #msg = '  SAML auth: ' + str(auth)
+        #logger.info(msg)
         login = auth.login()
         shortened = login[0:100] + '... ' + ' chars removed ...' + login[-15:]
         lenshortened = len(shortened)
         shortened = login[0:100] + '... ' + str(lenshortened) + ' chars removed ...' + login[-15:]
-        msg = '  sso login HttpResponseRedirect( ' + str(shortened) + ' )'
-        logger.info(msg)
+        #msg = '  sso login HttpResponseRedirect( ' + str(shortened) + ' )'
+        #logger.info(msg)
         return HttpResponseRedirect(login)
 
     elif 'sso2' in req['get_data']:
@@ -2446,12 +2416,12 @@ def index(request):
         if 'LogoutRequestID' in request.session:
             request_id = request.session['LogoutRequestID']
 
-        msg = "   in slo -- request_id = " + str(request_id)
-        logger.info(msg)
+        #msg = "   in slo -- request_id = " + str(request_id)
+        #logger.info(msg)
 
         url = auth.logout(name_id=name_id, session_index=session_index, nq=name_id_nq, name_id_format=name_id_format, spnq=name_id_spnq)
-        msg = '       slo HttpResponseRedirect( ' + str(url) + ' )'
-        logger.info(msg)
+        #msg = '       slo HttpResponseRedirect( ' + str(url) + ' )'
+        #logger.info(msg)
         return HttpResponseRedirect(url)
 
         # If LogoutRequest ID need to be stored in order to later validate it, do instead

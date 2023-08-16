@@ -101,9 +101,10 @@ def ldg(request, project_name = None):
 
     if 'ldg' in str(request):
 
-        login = 'https://idp.int.identitysandbox.gov/openid_connect/authorize?'
-        login = login + "acr_values=" + settings.LOGINDOTGOV_ACR + "&"
-        login = login + "client_id=" + settings.LOGINDOTGOV_CLIENT_ID + "&"
+        #login = 'https://idp.int.identitysandbox.gov/openid_connect/authorize?'
+        login = settings.LOGINDOTGOV_IDP_SERVER + '/openid_connect/authorize?'
+        login = login + "acr_values=" + settings.LOGINDOTGOV_ACR
+        login = login + "&client_id=" + settings.LOGINDOTGOV_CLIENT_ID + "&"
         login = login + "nonce=" + str(secrets.token_urlsafe(30)) + "&"
         login = login + "prompt=select_account&"
         login = login + "redirect_uri=" + settings.LOGINDOTGOV_RETURN_TO + "&"
@@ -117,7 +118,7 @@ def ldg(request, project_name = None):
 
         return HttpResponseRedirect(login)
     else:
-         HttpResponseRedirect(settings.LOGINDOTGOV_ERROR_REDIRECT)
+        HttpResponseRedirect(settings.LOGINDOTGOV_ERROR_REDIRECT)
 
 def uuFromFp(fingerprint, nameattrsgroup, connattrsgroup):
     qs = Uniqueuser.objects.filter(fingerprint=fingerprint)
@@ -355,7 +356,11 @@ def ldg_authenticated(request):
             msg = "   tokenresponse: " + tokenresponse.text
             logger.info(msg)
 
-        ale = ast.literal_eval(tokenresponse.text)
+        try:
+            ale = ast.literal_eval(tokenresponse.text)
+        except SyntaxError:
+            ale = {}
+
         if settings.VERBOSE:
             msg = "  ale: " + str(ale)
             logger.info(msg)
@@ -364,6 +369,7 @@ def ldg_authenticated(request):
             accesstoken = ale['access_token']
         except KeyError:
             accesstoken = None
+
         if settings.VERBOSE:
             msg = "  accesstoken: " + str(accesstoken)
             logger.info(msg)
@@ -389,33 +395,36 @@ def ldg_authenticated(request):
             logger.info(msg)
   
         uu = {} 
-        for attr in attstr.split(','):
-            attr = attr.replace('{', '')
-            attr = attr.replace('}', '')
-            #msg = "   attr = " + str(attr)
-            #logger.info(msg)
-
-            v = str(attr).split(':')
-            #msg = "    v = " + str(v)
-            #logger.info(msg)
-
-            key = str(v[0]).replace('"', '', 10)
-            value = str(v[1]).replace('"', '', 10)
-            if len(v) > int(2):
-                value = value + ':' + str(v[2]).replace('"', '', 10)
-            attributes.append((key, str(value)))
-            attrs[key] = value
-
-            if 'sub' in str(key) or 'email' in str(key):
-                uu[key] = value
-
-            data = {}
-            data[key] = value 
-            data = str(data).encode()
-            fingerprint = md5(data).hexdigest()
-            encrypted_attrs = fernet.encrypt(data)
-            thisattr = attributesFromDecodedFp(fingerprint,  encrypted_attrs)
-            uuattrslist.append(thisattr)
+        if '(404)' not in attstr:
+            for attr in attstr.split(','):
+                attr = attr.replace('{', '')
+                attr = attr.replace('}', '')
+                msg = "   attr = " + str(attr)
+                logger.info(msg)
+    
+                v = str(attr).split(':')
+                msg = "    v = " + str(v)
+                logger.info(msg)
+   
+                try: 
+                    key = str(v[0]).replace('"', '', 10)
+                    value = str(v[1]).replace('"', '', 10)
+                    if len(v) > int(2):
+                        value = value + ':' + str(v[2]).replace('"', '', 10)
+                    attributes.append((key, str(value)))
+                    attrs[key] = value
+                    if 'sub' in str(key) or 'email' in str(key):
+                        uu[key] = value
+                except KeyError:
+                    pass
+    
+                data = {}
+                data[key] = value 
+                data = str(data).encode()
+                fingerprint = md5(data).hexdigest()
+                encrypted_attrs = fernet.encrypt(data)
+                thisattr = attributesFromDecodedFp(fingerprint,  encrypted_attrs)
+                uuattrslist.append(thisattr)
 
         nameattrsgroup = attributeGroupFromAttributes(namegrouptype, uuattrslist)
 
@@ -1254,6 +1263,9 @@ def make_connections_by_project_img():
     allconnections = Connection.objects.all()
     numconnections = allconnections.count()
     debugprint['allconnections'] = str(allconnections) 
+    #if numconnections == int(0):
+    #    imageattributes = []
+    #    return (imageattributes, debugprint)
 
     all_connections_verbose = []
     for c in allconnections:

@@ -58,8 +58,9 @@ SECRET_KEY = get_secret('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-DEBUG_SAML_DEBUG = False 
-VERBOSE = False
+DEBUG_SAML_DEBUG = True
+VERBOSE = True
+
 
 # Organization structure 
 ALL_ORGS_BY_ID = {
@@ -120,6 +121,7 @@ SSOP_SYSADS = {}
 LOCAL_PASSWORD_MINIMUM_LENGTH = 40
 NONE_NAME = "#none"
 NONE_EMAIL = "#none.none@none.tld"
+
 
 # Expire the session after an hour
 SESSION_COOKIE_AGE = 3600

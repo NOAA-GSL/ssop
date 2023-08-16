@@ -71,8 +71,8 @@ class ProjectAdmin(admin.ModelAdmin):
         form = super(ProjectAdmin, self).form
         if str(db_field) == 'sites.Project.userlist':
             kwargs['queryset'] = Contact.objects.all().order_by('firstname')
-            ncontact = Contact.objects.filter(firstname=settings.NONE_NAME)
-            if ncontact.count() > 0:
+            ncontact = Contact.objects.filter(email=settings.NONE_EMAIL)
+            if ncontact.count() > int(0):
                 ncontact = ncontact[0]
                 form = super(ProjectAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
                 form.initial = {ncontact.id: True}

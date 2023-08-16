@@ -209,6 +209,12 @@ def add_groups_and_permissions():
         msg = str(now) + ":GroupobjectAddedPerms:" + groupname
         logger.info(msg)
 
+def add_none_contact():
+    contacts = Contact.objects.filter(email=settings.NONE_EMAIL)
+    if contacts.count() == int(0):
+        newcontact = Contact.objects.create(email=settings.NONE_EMAIL)
+        newcontact.save()
+   
 def hash_to_fingerprint(data):
     dkeys = []
     for k in data.keys():

@@ -61,6 +61,8 @@ DEBUG = True
 DEBUG_SAML_DEBUG = True
 VERBOSE = True
 
+# Causes 'subject' field to be redacted -- useful for demonstration
+DEMOMODE = True
 
 # Organization structure 
 ALL_ORGS_BY_ID = {

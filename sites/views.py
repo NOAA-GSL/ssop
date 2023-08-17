@@ -751,7 +751,6 @@ def showattrs(request, access_token = None):
             #msg = "   jwtdata: " + str(jwtdata)
             #logger.info(msg)
 
-              
             jsonwebtoken = jwt.encode(jwtdata, settings.JWT_PRIVATE_KEY, algorithm="RS256")
             attributes.append(('json web token', jsonwebtoken))
             attrsjwt = settings.LDG_BASE + "sites/attrsjwt/" + str(access_token) + "/"

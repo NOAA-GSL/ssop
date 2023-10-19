@@ -60,7 +60,7 @@ class OrganizationAdmin(admin.ModelAdmin):
 
 class ProjectAdmin(admin.ModelAdmin):
     #list_display = ('name', 'organization', 'enabled', 'expiretokens', 'return_to', 'queryparam', 'error_redirect', 'display_order', 'state', 'decrypt_key', 'graph_node_id')
-    list_display = ('name', 'organization', 'enabled', 'expiretokens', 'queryparam', 'return_to', 'error_redirect', 'contacts_url', 'users', 'decrypt_key', 'state', 'logoimg', 'showlogobin', 'display_order', 'state', 'decrypt_key', 'updated')
+    list_display = ('name', 'organization', 'enabled', 'expiretokens', 'queryparam', 'return_to', 'error_redirect', 'contacts_url', 'users', 'app_params', 'decrypt_key', 'state', 'logoimg', 'showlogobin', 'display_order', 'state', 'decrypt_key', 'updated')
     list_display_links = list_display
     #readonly_fields = ('state', 'updater') 
     ordering = ('display_order', 'organization', 'name')

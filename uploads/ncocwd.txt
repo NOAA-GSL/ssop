@@ -135,7 +135,7 @@
               <li><a href="/status/cwd/">Critical Weather Day</a></li>
               <li><a href="/status/satellite/">Current Satellite Sectors</a></li>
               <li><a href="/status/wsr/">Winter Storm Reconnaissance</a></li>
-              <li><a href="/pmb/qap/">Upper Air & Surface Data QC</a></li>
+              <li><a href="/omb/dataqc/">Upper Air & Surface Data QC</a></li>
               <li><a href="https://radar2pub.ncep.noaa.gov">Radar Level II</a></li>
               <li><a href="https://radar3pub.ncep.noaa.gov">Radar Level III</a></li>
             </ul>
@@ -284,18 +284,18 @@
 <!--***CWD Outlook***-->
      <div class="hd-opt-d">Outlook
 
-     <div class="hd-opt-e">Updated 0829Z Wed Aug 16 2023</div>
+     <div class="hd-opt-e">Updated 0851Z Wed Oct 04 2023</div>
 
      </div>
 
      <div class="row-opt-e-d">
-     <div class="col-opt-l-d-Normal">12Z Wed Aug 16 - 12Z Thu Aug 17</div><div class="col-opt-l-d-Normal">12Z Thu Aug 17 - 12Z Fri Aug 18</div><div class="col-opt-l-d-Normal">12Z Fri Aug 18 - 12Z Sat Aug 19</div>     </div>   
+     <div class="col-opt-l-d-Normal">12Z Wed Oct 04 - 12Z Thu Oct 05</div><div class="col-opt-l-d-Normal">12Z Thu Oct 05 - 12Z Fri Oct 06</div><div class="col-opt-l-d-Normal">12Z Fri Oct 06 - 12Z Sat Oct 07</div>     </div>   
      <div class="row-opt-e">
      <div class="col-opt-l-Normal"><div class="row-opt-d"><div class="col-opt-w">Normal</div><div class="col-opt-x"></div></div></div><div class="col-opt-l-Normal"><div class="row-opt-d"><div class="col-opt-w">Normal</div><div class="col-opt-x"></div></div></div><div class="col-opt-l-Normal"><div class="row-opt-d"><div class="col-opt-w">Normal</div><div class="col-opt-x"></div></div></div>     </div>
      
      <div class="row-opt-e-di">
        
-Critical Weather Day is not scheduled for the next 3 days. However, NCEP will be monitoring the need for CWD in support of fire weather operations in the northwestern U.S. Thursday. 
+Critical Weather Day is not expected in the next 3 days.
      </div>
 
      <div class="hd-opt-d">Hazards</div>
@@ -475,7 +475,7 @@ Critical Weather Day is not scheduled for the next 3 days. However, NCEP will be
 
      <!--Display times page was loaded-->
   <div class="loadtime">
-  Page loaded: 22:18 UTC &nbsp; | &nbsp; 3:18 pm Pacific &nbsp; | &nbsp; 4:18 pm Mountain &nbsp; | &nbsp; 5:18 pm Central &nbsp; | &nbsp; 6:18 pm Eastern   </div>
+  Page loaded: 14:49 UTC &nbsp; | &nbsp; 7:49 am Pacific &nbsp; | &nbsp; 8:49 am Mountain &nbsp; | &nbsp; 9:49 am Central &nbsp; | &nbsp; 10:49 am Eastern   </div>
 
       
 

@@ -26,7 +26,7 @@ class ProjectAdminForm(forms.ModelForm):
     class Meta:
         model = Project
         #fields = '__all__'
-        field_order = ('name', 'organization', 'verbose_name', 'return_to', 'error_redirect', 'enabled', 'display_order', 'decrypt_key', 'logoimg', 'userlist', 'expiretokens', 'graphnode', 'state', 'queryparam', 'querydelimiter', )
+        field_order = ('name', 'organization', 'verbose_name', 'return_to', 'error_redirect', 'enabled', 'display_order', 'decrypt_key', 'logoimg', 'userlist', 'app_params', 'expiretokens', 'graphnode', 'state', 'queryparam', 'querydelimiter', )
         fields = field_order
 
 

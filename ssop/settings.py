@@ -58,11 +58,9 @@ SECRET_KEY = get_secret('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-DEBUG_SAML_DEBUG = True
-VERBOSE = True
+DEBUG_SAML_DEBUG = False 
+VERBOSE = False 
 
-# Causes 'subject' field to be redacted -- useful for demonstration
-DEMOMODE = True
 
 # Organization structure 
 ALL_ORGS_BY_ID = {
@@ -88,7 +86,7 @@ AUTH_SAML_GROUPS = {
         "modelslist": [],
         "viewmodels": ["About", "Attributes", "AttributeGroup", "AuthToken", "Connection", "Contact", "Organization", "Project", "Sysadmin", "Uniqueuser"]
     },
-    "cn=_OAR GSL ITS SSG-GSL,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov": {
+    "cn=_OAR GSL Sysadm,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov": {
         "modelslist": ["Contact", "Key", "Organization", "Project", "Room"],
         "viewmodels": ["About", "Attributes", "AttributeGroup", "AuthToken", "Connection", "Sysadmin", "Uniqueuser"]
     },
@@ -105,15 +103,18 @@ AUTH_SAML_GROUPS = {
 AUTH_SAML_USER_FLAGS_BY_GROUP = {
     "is_active": "cn=_OAR ALL,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
     "is_staff": "cn=_OAR ALL,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
-    "is_sysadmin": "_OAR GSL ITS SSG-GSL,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
+    "is_sysadmin": "_OAR GSL Sysadm,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
     "is_ssopadmin": "cn=_OAR ESRL GSL SSOPAdmin,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov"
 }
+#    "is_sysadmin": "_OAR GSL ITS SSG-GSL,cn=groups,cn=nems,ou=apps,dc=noaa,dc=gov",
 
 # NOTE: mapping is case sensitive
 AUTH_SAML_USER_ATTR_MAP = {
      "email": "mail",
      "member": "isMemberOf"
  }
+
+
 
 SSOP_SYSADS = {}
 #SSOP_SYSADS = {
@@ -349,16 +350,17 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'gsl.noaa.gov', '140.172.12.92', SERV
 #    }
 #}
 
-DATABASENAME = 'ssop_dev'
+DATABASENAME = 'ssop_dev2'
 DATABASEUSERNAME = 'ucanreadwrite'
 DATABASEMIGRATIONUSERNAME = 'kirkholub'
 
 DBPWD = get_secret('DATABASE_SECRET')
 MIGRATIONPWD = get_secret('MIGRATION_SECRET')
 
-# For initial setup
-DATABASEUSERNAME = DATABASEMIGRATIONUSERNAME
-DBPWD = MIGRATIONPWD
+# For initial setup or DB schema updates
+#DATABASEUSERNAME = DATABASEMIGRATIONUSERNAME
+#DBPWD = MIGRATIONPWD
+
 
 # https://www.laurencegellert.com/2019/03/making-djangos-database-connection-more-secure-for-migrations/
 DATABASES = {
@@ -454,6 +456,7 @@ LOGINDOTGOV_LOGOUT_URI = 'https://gsl.noaa.gov/ssopsb/sites'
 LDG_BASE  = 'https://gsl.noaa.gov/ssopsb/'
 LDG_POSTFIX  = '/'
 
+
 # A known parameter return on auth sucess .... can be whatever we want as long as its > 22 chars
 LOGINDOTGOV_LOGIN_STATE = '2.7182818284590452353602874'
 LOGINDOTGOV_LOGOUT_STATE = '1.618033988749894848204586'
@@ -520,7 +523,7 @@ HELP_ORGANIZATION = "Organization responsible for this project."
 HELP_USERLIST = "A list of authorized users.  Use cmd-click to select multiple users.  Click + to add a new Contact."
 HELP_GRAPHNODE = "Used for connection graphing.  Automatically generated when needed."
 HELP_LOGOIMG = "An image used for the Project's tile on the main page.  Types are limited to: " + LOGO_FILETYPESTR + ".  The image will be resized using a square aspect ratio."
-
+HELP_APP_PARAMS = "Optional field for application use.  Defaults is an empty dictionary."
 #  
 CWD_PREV = "uploads/ncocwd.txt"
 CWD_URL = "https://www.nco.ncep.noaa.gov/status/cwd/"

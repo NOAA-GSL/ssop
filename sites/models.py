@@ -215,6 +215,18 @@ def add_none_contact():
         newcontact = Contact.objects.create(email=settings.NONE_EMAIL)
         newcontact.save()
    
+def add_contacts_list(userlist):
+    for line in userlist.split('\n'):
+        line = str(line)
+        msg = "line: " + line
+        if "," in line:
+            logger.info(msg)
+            email, firstname, lastname = line.split(',')
+            qs = Contact.objects.filter(email=email)
+            if qs.count() == int(0):
+                newcontact = Contact.objects.create(email=email, firstname=firstname, lastname=lastname)
+                newcontact.save()
+   
 def hash_to_fingerprint(data):
     dkeys = []
     for k in data.keys():
@@ -358,7 +370,7 @@ class About(models.Model):
 class Contact(models.Model):
     firstname = models.CharField(max_length=150, default='firstname')
     lastname = models.CharField(max_length=150, default='lastname')
-    email = models.EmailField(null=True, blank=True)
+    email = models.EmailField(null=True, blank='noemail@default.tld')
 
     def __str__(self):
         return  self.firstname + ' ' + self.lastname + ' (' + str(self.email) + ')'
@@ -405,8 +417,10 @@ class Project(models.Model):
     logoimg = models.ImageField(upload_to = get_upload_path, verbose_name="Logo Image", null=True, blank=True, help_text=mark_safe(settings.HELP_LOGOIMG))
     logobin = models.BinaryField(null=True, blank=True)
     userlist = models.ManyToManyField('sites.Contact', related_name='project_userlist', help_text=mark_safe(settings.HELP_USERLIST))
+    app_params = models.TextField(max_length=4096, null=True, default='{}', help_text=mark_safe(settings.HELP_APP_PARAMS))
     
     #field_order = ('name', 'organization', 'verbose_name', 'return_to', 'error_redirect', 'enabled', 'display_order', 'decrypt_key', 'logoimg', 'userlist', 'expiretokens', 'graphnode', 'state', 'queryparam', 'querydelimiter', )
+    #field_order = ('name', 'organization', 'verbose_name', 'return_to', 'error_redirect', 'enabled', 'display_order', 'decrypt_key', 'logoimg', 'expiretokens', 'graphnode', 'state', 'queryparam', 'querydelimiter', )
 
     def __str__(self):
         return self.name
@@ -451,28 +465,28 @@ class Project(models.Model):
             destination_filename = pdir + '/logo'
 
             filetype = None
+            imgpath = None
             try:
                 imgpath = self.logoimg.path
+                for ft in settings.LOGO_FILETYPES:
+                    if str(imgpath).endswith(ft):
+                        filetype = ft
+                        break
+                msg = "   filetype is: " + str(filetype)
+                logger.info(msg)
+                if filetype:
+                    if os.path.exists(imgpath):
+                        os.rename(imgpath, destination_filename)
+                        fp = open(destination_filename, 'rb')
+                        self.logobin = fp.read()
+                        fp.close()
+                        need_to_save = True
             except ValueError as ve:
                 imgpath = '   ve: ' + str(ve)
             except SuspiciousFileOperation as sfo:
                 imgpath = '   sfo: ' + str(sfo)
             msg = "   imgpath is: " + str(imgpath)
             logger.info(msg)
-            for ft in settings.LOGO_FILETYPES:
-                if str(imgpath).endswith(ft):
-                    filetype = ft
-                    break
-            msg = "   filetype is: " + str(filetype)
-            logger.info(msg)
-            if filetype:
-                if os.path.exists(imgpath):
-                    os.rename(imgpath, destination_filename)
-                    fp = open(destination_filename, 'rb')
-                    self.logobin = fp.read()
-                    fp.close()
-
-            need_to_save = True 
 
         if not settings.DEBUG:
             if not self.expiretokens:
@@ -556,6 +570,9 @@ class Project(models.Model):
     def get_logobin(self):
         return self.logobin
 
+    def get_app_params(self):
+        return self.app_params
+
     def users(self):
         users = []
         for a in self.userlist.get_queryset():
@@ -568,6 +585,30 @@ class Project(models.Model):
         else:
             retstr = str(len(users)) + " users"
         return retstr
+
+    def authorized(self, uu):
+        msg = "    authorized uu: " + str(uu)
+        logger.info(msg)
+        #uu = ast.literal_eval(uustr)
+        #msg = "    uu: " + str(uu)
+        #logger.info(msg)
+        auth = False 
+        try:
+            email = uu['email']
+        except KeyError:
+            email = 'noemail'
+        email = str(email).lower()
+        msg = "    email: " + str(email)
+        logger.info(msg)
+        for a in self.userlist.get_queryset():
+            msg = "    a: " + str(a)
+            logger.info(msg)
+            if email in str(a).lower():
+                auth = True
+                break
+        msg = "    authorized auth: " + str(auth)
+        logger.info(msg)
+        return auth
 
     def contact_emails(self):
         users = []
@@ -690,12 +731,17 @@ class AuthToken(models.Model):
         
         if (utcnow < self.expires):
             self.accessed = utcnow
-            mindt = datetime.datetime.combine(datetime.date.min, datetime.time.min)
-            self.expires = mindt.replace(tzinfo=pytz.UTC)
+            #mindt = datetime.datetime.combine(datetime.date.min, datetime.time.min)
+            #self.expires = mindt.replace(tzinfo=pytz.UTC)
             self.save()
             return str(self.token)
         else:
             return str('EXPIRED')
+
+    def expire_token(self):
+        mindt = datetime.datetime.combine(datetime.date.min, datetime.time.min)
+        self.expires = mindt.replace(tzinfo=pytz.UTC)
+        self.save()
 
 
 class Connection(models.Model):
@@ -738,17 +784,25 @@ class Connection(models.Model):
             return str(self.connection_state)
 
     def get_ca(self):
-        ca = {} 
-        for fp in self.attrsgroup.attributes().split(','):
-            at = ast.literal_eval(get_attributesFromFp(fp))
-            for k in at.keys(): 
-                ca[k] = at[k]
+        ca = [] 
+        msg = "    model -- get_ca()"
+        logger.info(msg)
+        for a in self.attrsgroup.get_attrs():
+            msg = "    model -- get_ca() -- a: " + str(a)
+            logger.info(msg)
+            ca.append(a.get_attributes())
         return ca
 
     def get_request_attributes(self):
+        msg = "    model -- get_request_attributes()"
+        logger.info(msg)
         attributes = []
-        ca = self.get_ca() 
-        attributes.append(('requestattrs: ', str(ca)))
+        for ca in self.get_ca():
+            msg = "    ca: " + str(ca)
+            logger.info(msg)
+            attributes.append(ca)
+        msg = "    attributes: " + str(attributes)
+        logger.info(msg)
         return attributes
 
     def get_ua(self):
@@ -965,7 +1019,7 @@ class OrganizationNode(models.Model):
 class Organization(models.Model):
     name = models.CharField(max_length=50, null=True, default='unknownOrganization')
     userlist = models.ManyToManyField('sites.Contact', related_name='organization_userlist')
-    projects = models.ManyToManyField(Project, related_name='orgs_projects')
+    projects = models.ManyToManyField(Project, related_name='organization_projects')
     updated = models.DateTimeField(auto_now_add=True)
     graphnode = models.ForeignKey('sites.GraphNode', null=True, blank=True, on_delete=models.SET_NULL)
 
@@ -1055,7 +1109,6 @@ class AttributeGroup(models.Model):
                 v = str(v)
             retlist.append((k,v))
         return retlist
-
 
     #def graph_node_id(self):
     #    nid = str(-1)

@@ -2,13 +2,16 @@ Welcome to ssop, a Single Sign On Portal which uses login.gov as an Identity Ver
 
 1) Clone ssop repo
 2) Change directory ssop
-3) Create a virtual environment named venv:  python3.8 -m venv venv 
-   NOTE: Python 3.6 not being supported WRT crypto -- no point in staring at 3.7
+3) Create a virtual environment named venv:  python3.9 -m venv venv 
+   NOTE: Python 3.6 not being supported WRT crypto
 4) Upgrade pip to latest and then pip install -r requirements.txt
 
 5) If needed, use https://developers.login.gov to establish a sandbox environment, create a team (yourself and collaborators if desired), then create and app.
 6) Update LOGINDOTGOV_ related parameters in ssop/settings.py with results from 5 or from a configuration management system (CMS).
-7) Update JWT_ related parameters as needed or from a CMS.
+7) Update JWT_ related parameters in ssop/settings.py as needed or from a CMS.
+8) Update account management parameters in ssop/settings.py as desired
+9) Update SSO, AUTH_SAML_*, EMAIL, LOGGING, SSOP_DEPLOY*, DATABASE, possibly other variables in ssop/settings.py as required and/or desired.
+9) Deploy AWS resources as needed
 
 See the images in the screenshot folder to aid with LOGINDOTGOV settings.  Also, a final user attributes screen can be seen.
 
@@ -19,11 +22,13 @@ Files in etc/nginx and etc/systemd/system demonstrate a full webserver with back
    Once configured enable the services:
       sudo systemctl enable ssop_gunicorn.socket
       sudo systemctl enable ssop_gunicorn.service
+      sudo systemclt enable ssop_account_review.service
 
    And start them:
       sudo systemctl start ssop_gunicorn.socket
       sudo systemctl start ssop_gunicorn.service
-
+      sudo systemclt start ssop_account_review.service
+      
    After any python code changes
       sudo systemctl restart ssop_gunicorn.service
 
@@ -31,7 +36,9 @@ Files in etc/nginx and etc/systemd/system demonstrate a full webserver with back
 
 It works best to use an incognito window.  Otherwise the only way to truly logout is close the browser.  Using an incognito windows allows for a fresh session for each login test.
 
-Only tested with Chrome.
+Tested mostly with Chrome.
+Also appears to Firefox.
+Safari and CAC stil do not play well together
 
 -------------------------------------------
 
@@ -90,3 +97,4 @@ SELINUX content and user types:
 
 Kirk Holub
 kirk.l.holub@noaa.gov
+29 Dec 2023

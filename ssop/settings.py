@@ -34,9 +34,19 @@ DEFAULT_AUTO_FIELD='django.db.models.AutoField'
 #     ...
 
 
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SSOPSB_VERSION = 'beta -- ' + datetime.datetime.utcnow().strftime('%Y.%m.%d') 
+SSOPSB_VERSION = 'v1.1.2 -- ' + datetime.datetime.utcnow().strftime('%Y.%m.%d') 
+
+# Enables a 'shutdown' banner For those times when Congress cannot get its act together
+LAPSE_IN_APPROPRIATIONS = False
+LAPSE_IN_APPROPRIATIONS_LINK = "https://www.commerce.gov/news/blog/2023/10/us-department-commerce-plan-orderly-shutdown-due-lapse-congressional"
+LAPSE_IN_APPROPRIATIONS_MESSAGE_TOP = ""
+LAPSE_IN_APPROPRIATIONS_MESSAGE_TOP = "TESTING, TESTING, TESTING ---- PLEASE IGNORE ----- "
+LAPSE_IN_APPROPRIATIONS_MESSAGE_TOP = LAPSE_IN_APPROPRIATIONS_MESSAGE_TOP + "Parts of the U.S. government are closed. This site will not be updated; however, NOAA websites and social media channels necessary to protect lives and property will be maintained.  To learn more, visit commerce.gov."
+LAPSE_IN_APPROPRIATIONS_MESSAGE_BOTTOM = "For the latest forecasts and critical weather information, visit weather.gov.  *Please note: Some Funding Opportunities offered under the Bipartisan Infrastructure Law and Inflation Reduction Act are open and can be applied for during the partial government shutdown."
+LAPSE_IN_APPROPRIATIONS_MESSAGE_BOTTOM = LAPSE_IN_APPROPRIATIONS_MESSAGE_BOTTOM + " ---- END TESTING -----"
 
 # https://stackoverflow.com/questions/42077532/django-security-and-settings
 with open(os.path.join(BASE_DIR, 'secrets.json')) as secrets_file:
@@ -60,6 +70,12 @@ SECRET_KEY = get_secret('SECRET_KEY')
 DEBUG = True
 DEBUG_SAML_DEBUG = False 
 VERBOSE = False 
+DEBUG_VERBOSE = False 
+
+
+
+
+
 
 
 # Organization structure 
@@ -70,8 +86,6 @@ ALL_ORGS_BY_ID = {
     "4": {"name": "GSL-ITS", "parent": "GSL", "contact": "Scott Nahman", "email": "scott.nahman@noaa.gov"},
     "5": {"name": "GSL-WIDS", "parent": "GSL", "contact": "Dan Nietfeld", "email": "dan.nietfeld@noaa.gov"},
     "6": {"name": "GSL-WIDS-WIZARD", "parent": "GSL-WIDS", "contact": "Jebb Stewart", "email": "jebb.q.stewart@@noaa.gov"},
-    "7": {"name": "GSL-ASCEND", "parent": "GSL", "contact": "Curtis Alexander", "email": "curtis.alexander@noaa.gov"},
-    "8": {"name": "PMEL", "parent": "OAR", "contact": "Eugene Berger", "email": "eugene.berger@noaa.gov"}
     }
 
 # SSO
@@ -115,16 +129,17 @@ AUTH_SAML_USER_ATTR_MAP = {
  }
 
 
-
 SSOP_SYSADS = {}
 #SSOP_SYSADS = {
 #        'holubdev': {'type': 'localdev', 'email': 'kirk.l.holub@gmail.com', 'homeorg': 'noaa', 'divisions': ['oar', 'gsl', 'gsl-its']},
 #}
 
+
 LOCAL_PASSWORD_MINIMUM_LENGTH = 40
 NONE_NAME = "#none"
+NONE_NEVER_EXPIRES = '9999-12-31T23:59:59+00:00'
+ANYONE_EMAIL = "#anynone.anywhere@anydomain.tld"
 NONE_EMAIL = "#none.none@none.tld"
-
 
 # Expire the session after an hour
 SESSION_COOKIE_AGE = 3600
@@ -141,6 +156,7 @@ EMAIL_PORT = 25
 EMAIL_HOST_USER = 'noreply.gsl@noaa.gov'
 EMAIL_USE_TLS = True
 SSOP_ADMIN_EMAIL = "ssopadmin.gsl@noaa.gov"
+EMAIL_TEST_USERS = ['kirk.l.holub@gmail.com', 'kirk.l.holub@noaa.gov']
 
 
 USER_HAS_AUTHENTICATED_SUBJECT = 'SSOPSB Login'
@@ -148,6 +164,50 @@ body = 'Hello firstname,\nWe noticed you logged into SSOP sandbox admin at ymdhm
 body = body + 'If you did not login at this time, please contact ' + SSOP_ADMIN_EMAIL
 body = body + '\n\nYou can also direct message @Kirk Holub on https://oar-gsl.slack.com'
 USER_HAS_AUTHENTICATED_BODY = body
+
+# to help manage Contacts
+#                         D    H    M      S
+#CONTACT_RENEWAL_PERIOD = 60 * 24 * 60 * 60
+#CONTACT_RENEWAL_PERIOD = 60 * 1440 * 60
+
+# Policy per Security Officer
+CONTACT_RENEWAL_PERIOD_DAYS = 60 
+# days to minutes for debugging
+#CONTACT_RENEWAL_PERIOD_DAYS = 6
+
+# days to minutes for debugging
+CONTACT_RENEWAL_PERIOD_SECONDS = CONTACT_RENEWAL_PERIOD_DAYS * 24 * 60 * 60 
+#CONTACT_RENEWAL_PERIOD_SECONDS = CONTACT_RENEWAL_PERIOD_DAYS * 3600 
+# days to minutes for debugging
+#CONTACT_RENEWAL_PERIOD_SECONDS = CONTACT_RENEWAL_PERIOD_DAYS * 1 * 1 * 60 
+CONTACT_RENEWAL_PERIOD_TIMEDELTA = datetime.timedelta(seconds=CONTACT_RENEWAL_PERIOD_SECONDS)
+
+
+CONTACT_RENEWAL_PERIOD_WARNINGS = [] 
+# Send an warning email on these days before an account is deleted
+CONTACT_RENEWAL_PERIOD_WARNING_DAYS = [1, 14]
+for d in CONTACT_RENEWAL_PERIOD_WARNING_DAYS:
+    CONTACT_RENEWAL_PERIOD_WARNINGS.append(datetime.timedelta(days=d))
+    # days to minutes for debugging
+    #s = d * 60
+    #CONTACT_RENEWAL_PERIOD_WARNINGS.append(datetime.timedelta(seconds=s))
+
+if len(CONTACT_RENEWAL_PERIOD_WARNINGS) > int(1):
+    CONTACT_RENEWAL_PERIOD_WARNINGS.sort() 
+
+USER_REMOVAL_NOTICE_SUBJECT = 'Single Sign-On Portal Sandbox access expiration notice'
+body = 'Hello firstname,\n'
+body = body + '\nYour authorized Single Sign-on Portal Sandbox (SSOPSB) projects are: project_list\n'
+body = body + 'If you require continued access to any of these projects, then you must login to a project before expires_datetime UTC.\n'
+body = body + 'Or, you may use this link to acknowledge your need for continued access: renewal_link.\n'
+body = body + '\nYour SSOPSB access will be removed in removed_in_dtdelta at expires_datetime UTC if you take no action.\n'
+#body = body + '    Last connected at: last_connected_datetime\n'
+#body = body + '    Previous warning sent at: warned_datetime\n'
+body = body + '\nYour access can be removed immediately by visiting: remove_account_link\n'
+body = body + '\nPlease contact the project owner if you have any questions.\n'
+#body = body + 'body_comment'
+USER_REMOVAL_NOTICE_BODY = body
+
 
 # https://stackoverflow.com/questions/8023126/how-can-i-test-https-connections-with-django-as-easily-as-i-can-non-https-conne1826
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
@@ -305,6 +365,7 @@ TEMPLATES = [
                 'ssop.context_processors.deploy_env',
                 'ssop.context_processors.server_url',
                 'ssop.context_processors.cwd_refresh_rate',
+                'ssop.context_processors.lapse_in_appropriations',
             ],
         },
     },
@@ -318,12 +379,14 @@ if SSOP_DEPLOY_ENV == "Development":
     DEPLOY_ENV_COLOR = '#ff6666'  # light red
     DEPLOY_ENV_TEXT_COLOR = 'gold'
     SERVER_FQDN = 'gsl-webstage8.gsd.esrl.noaa.gov'
+    EXTERNAL_URL = 'https://gsl.noaa.gov/ssopsb/'
     SERVER_IP = '137.75.133.86'
 
 elif SSOP_DEPLOY_ENV == "Integration":
     DEPLOY_ENV_COLOR = '#99ff99'  # light green
     DEPLOY_ENV_TEXT_COLOR = 'black'
     SERVER_FQDN = 'gsl-webssop.gsd.esrl.noaa.gov'
+    EXTERNAL_URL = 'https://gsl.noaa.gov/ssop/'
     SERVER_IP = '137.75.133.109'
 
 elif SSOP_DEPLOY_ENV == "Production":
@@ -360,6 +423,9 @@ MIGRATIONPWD = get_secret('MIGRATION_SECRET')
 # For initial setup or DB schema updates
 #DATABASEUSERNAME = DATABASEMIGRATIONUSERNAME
 #DBPWD = MIGRATIONPWD
+
+
+
 
 
 # https://www.laurencegellert.com/2019/03/making-djangos-database-connection-more-secure-for-migrations/
@@ -427,6 +493,11 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
+DEFAULT_DATETIME_STR = '0001-01-01T00:00:00+00:00'
+DEFAULT_DATETIME = datetime.datetime.fromisoformat(DEFAULT_DATETIME_STR)
+
+
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
@@ -486,6 +557,8 @@ JWTEXP = 300
 
 # Length of a production key -- to aid in deployments
 PRODKEYLEN = 60
+# Length of a production key -- to aid in deployments
+PRODKEYLEN = 60
 
 # Attributes one-time access token lifetime in seconds
 ATTRS_ACCESS_TOKEN_LIFETIME = JWTEXP
@@ -520,17 +593,23 @@ HELP_DISPLAY_ORDER = "Used to order the projects on the main screen.  Item 1 is 
 HELP_ENABLED = "If True the project's tile will be available on the main screen."
 HELP_EXPIRETOKENS = "If True this project's authorization tokens will be fetched (and expired) upon use, as it will be in production.  If False (the default state), tokens will never expire which is convenitent for development work."
 HELP_ORGANIZATION = "Organization responsible for this project."
-HELP_USERLIST = "A list of authorized users.  Use cmd-click to select multiple users.  Click + to add a new Contact."
+HELP_USERLIST = "A list of authorized users.  Use command-click to select multiple users.  Click + to add a new Contact."
 HELP_GRAPHNODE = "Used for connection graphing.  Automatically generated when needed."
 HELP_LOGOIMG = "An image used for the Project's tile on the main page.  Types are limited to: " + LOGO_FILETYPESTR + ".  The image will be resized using a square aspect ratio."
 HELP_APP_PARAMS = "Optional field for application use.  Defaults is an empty dictionary."
-#  
+HELP_PROJECT_OWNER = "The Federal sponsor for this Project."
+HELP_CONTACT_EMAIL = "If email is the only field set, then the system will attempt to set firstname and lastname by splitting email address on the '@' and '.' characters when the SAVE button is clicked."
+
+
+
+
+
 CWD_PREV = "uploads/ncocwd.txt"
 CWD_URL = "https://www.nco.ncep.noaa.gov/status/cwd/"
 PAGE_REFRESH_RATE = "60"
 # NCO likely only refreshes on synoptic times 0, 6, 12, 18 UTC.  However, just in case, pull every hour
 CWD_FETCH_INTERVAL = 3600
      
-#
-UPDATED = 1540
+# in seconds
+ACCOUNT_REVIEW_NAPTIME = 60
  

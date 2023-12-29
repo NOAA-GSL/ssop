@@ -45,3 +45,12 @@ def cwd_refresh_rate(request):
     extra_context = {'cwd_refresh_rate': settings.PAGE_REFRESH_RATE}
     return extra_context
 
+def lapse_in_appropriations(request):
+    extra_context = {'lapse_in_appropriations': False}
+    if settings.LAPSE_IN_APPROPRIATIONS:
+        extra_context['lapse_in_appropriations'] = True
+        extra_context['lapse_in_appropriations_message_top'] = settings.LAPSE_IN_APPROPRIATIONS_MESSAGE_TOP
+        extra_context['lapse_in_appropriations_link'] = settings.LAPSE_IN_APPROPRIATIONS_LINK
+        extra_context['lapse_in_appropriations_message_bottom'] = settings.LAPSE_IN_APPROPRIATIONS_MESSAGE_BOTTOM
+    return extra_context
+

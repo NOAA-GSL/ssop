@@ -1,0 +1,12 @@
+{% extends "base_site.html" %}
+% load server_url %}
+
+{% block content %}
+
+  {% if data %}
+    <p>{{ data }}</p>
+  {% else %}
+    <div class="alert alert-danger" role="alert">No data!</div>
+  {% endif %}
+
+{% endblock %}

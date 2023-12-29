@@ -24,7 +24,7 @@ from cryptography.fernet import Fernet
 from bs4 import BeautifulSoup
 
 from sites.forms import ProjectForm
-from sites.models import Attributes, AttributeGroup, AuthToken, GraphNode, NodeType, Connection, Project, Uniqueuser, hash_to_fingerprint, clean_authtokens, runcmdl, Room
+from sites.models import Attributes, AttributeGroup, AuthToken, Contact, GraphNode, NodeType, Connection, Project, Uniqueuser, hash_to_fingerprint, clean_authtokens, runcmdl, Room
 
 logger = logging.getLogger('ssop.models')
 
@@ -75,15 +75,15 @@ def ldg(request, project_name = None):
 
     if project_name is None:
         project_name = settings.DEFAULT_PROJECT_NAME
-        msg = "   ldg project_name is now: " + str(project_name)
-        logger.info(msg)
+        if settings.VERBOSE:
+            msg = "   ldg project_name is now: " + str(project_name)
+            logger.info(msg)
 
     project_state = settings.LOGINDOTGOV_LOGIN_STATE
     if project_name:
         qs = Project.objects.filter(name=project_name)
         if qs.count() == int(1):
             qs = qs[0]
-            msg = "   ldg project_name: " + str(project_name)
             project_state = qs.get_connection_state()
         else:
             error_msg = "Sorry, project " + str(project_name) + " was not found."
@@ -95,12 +95,9 @@ def ldg(request, project_name = None):
                 linktext = p.get_verbose_name()
                 alt = 'Logo for project ' + str(p)
                 attributes.append((str(p), link, linktext, logo, alt, lmr.next()))
-            msg = "   attributes: " + str(attributes)
-            logger.info(msg)
             return render(request, 'sites_grid.html', {'attributes': attributes, 'error_msg': error_msg})
 
     if 'ldg' in str(request):
-
         #login = 'https://idp.int.identitysandbox.gov/openid_connect/authorize?'
         login = settings.LOGINDOTGOV_IDP_SERVER + '/openid_connect/authorize?'
         login = login + "acr_values=" + settings.LOGINDOTGOV_ACR
@@ -111,11 +108,9 @@ def ldg(request, project_name = None):
         login = login + "response_type=code&"
         login = login + "scope=" + settings.LOGINDOTGOV_SCOPE + "&"
         login = login + "state=" + project_state 
-
         if settings.VERBOSE:
             msg = '   ldg login HttpResponseRedirect( ' + str(login) + ' )'
             logger.info(msg)
-
         return HttpResponseRedirect(login)
     else:
         HttpResponseRedirect(settings.LOGINDOTGOV_ERROR_REDIRECT)
@@ -203,6 +198,9 @@ def get_authtoken(access_token):
     return token 
 
 def ldg_authenticated(request):
+    msg = "     ldg_authenticated request: " + str(request)
+    logger.info(msg)
+
     attributes = []
     #requestattrs = None
     #userattrs = None
@@ -296,11 +294,7 @@ def ldg_authenticated(request):
         attributes.append(('error_redirect', error_redirect))
         attributes.append(('state', state))
         app_params = qs.get_app_params()
-        msg = "   app_params: " + str(app_params)
-        logger.info(msg)
         aleap = ast.literal_eval(app_params)
-        msg = "   aleap: " + str(aleap)
-        logger.info(msg)
         for alk in aleap.keys():
             atmp = {}
             atmp[alk] = aleap[alk]
@@ -310,8 +304,6 @@ def ldg_authenticated(request):
             encrypted_temp = fernet.encrypt(temp)
             tempattrs = attributesFromDecodedFp(tempfp, encrypted_temp)
             connattrslist.append(tempattrs)
-            msg = "    connection attrslist append: " + str(tempattrs)
-            logger.info(msg)
 
     if settings.VERBOSE:
         msg = "    state: " + str(state)
@@ -336,8 +328,8 @@ def ldg_authenticated(request):
         if settings.VERBOSE:
             msg = "   assertion: " + str(assertion)
             logger.info(msg)
-            msg = "   settings.LOGINDOTGOV_PRIVATE_CERT: " + str(settings.LOGINDOTGOV_PRIVATE_CERT)
-            logger.info(msg)
+            #msg = "   settings.LOGINDOTGOV_PRIVATE_CERT: " + str(settings.LOGINDOTGOV_PRIVATE_CERT)
+            #logger.info(msg)
 
         signedassertion = jwt.encode(assertion, settings.LOGINDOTGOV_PRIVATE_CERT, algorithm="RS256")  
         data = "client_assertion_type=" + settings.LOGINDOTGOV_CLIENT_ASSERTION_TYPE + "&"
@@ -355,8 +347,8 @@ def ldg_authenticated(request):
             msg = "       data: " + str(data)
             logger.info(msg)
 
-            curlcmd = 'curl -v -x ' + settings.HTTP_PROXY + ' -d "' + str(data) + '" ' + tokenurl
-            logger.info(curlcmd)
+            #curlcmd = 'curl -v -x ' + settings.HTTP_PROXY + ' -d "' + str(data) + '" ' + tokenurl
+            #logger.info(curlcmd)
 
         tokenresponse = requests.post(url=tokenurl, data=data, proxies=proxies)
         if settings.VERBOSE:
@@ -387,7 +379,7 @@ def ldg_authenticated(request):
             # curl headers need str vs {} for requests.get
             cheaders = "Authorization: Bearer " + str(accesstoken)
             curlcmd = 'curl -v -x ' + settings.HTTP_PROXY + '  -H "' + cheaders + '" ' + infourl
-            logger.info(curlcmd)
+            #logger.info(curlcmd)
 
         attributes.append(('AuthorizationBearer', str(accesstoken)))
 
@@ -406,14 +398,14 @@ def ldg_authenticated(request):
             for attr in attstr.split(','):
                 attr = attr.replace('{', '')
                 attr = attr.replace('}', '')
-                if settings.VERBOSE:
-                    msg = "   attr = " + str(attr)
-                    logger.info(msg)
+                #if settings.VERBOSE:
+                #    msg = "   attr = " + str(attr)
+                #    logger.info(msg)
     
                 v = str(attr).split(':')
-                if settings.VERBOSE:
-                    msg = "    v = " + str(v)
-                    logger.info(msg)
+                #if settings.VERBOSE:
+                #    msg = "    v = " + str(v)
+                #    logger.info(msg)
    
                 try: 
                     key = str(v[0]).replace('"', '', 10)
@@ -438,20 +430,20 @@ def ldg_authenticated(request):
         nameattrsgroup = attributeGroupFromAttributes(namegrouptype, uuattrslist)
 
         authorized = project.authorized(uu)
-        msg = "   uu " + str(uu) + " is " + str(authorized)
-        logger.info(msg)
+        #msg = "   uu " + str(uu) + " is " + str(authorized)
+        #logger.info(msg)
 
-        try: 
-            connattrsgroup = attributeGroupFromAttributes(conngrouptype, connattrslist)
-        except KeyError:
-            msg = "   no connattrsgroup" 
-            logger.info(msg)
+        if project.authorized(uu):
+            try: 
+                connattrsgroup = attributeGroupFromAttributes(conngrouptype, connattrslist)
+            except KeyError:
+                msg = "   no connattrsgroup for " + str(conngrouptype) + " and " + str(connattrslist)
+                logger.info(msg)
 
-        if settings.VERBOSE:
-            msg = "   ldg_authenticated request: " + str(request)
-            logger.info(msg)
+            if settings.VERBOSE:
+                msg = "   ldg_authenticated request: " + str(request)
+                logger.info(msg)
 
-        if project.authorized(uu) or settings.DEFAULT_PROJECT_NAME in project.name:
             uufp = hash_to_fingerprint(uu)
             uniqueuser = uuFromFp(uufp, nameattrsgroup, connattrsgroup)
             authtoken = get_authtoken(accesstoken)
@@ -459,15 +451,29 @@ def ldg_authenticated(request):
             connection = Connection(project=project, attrsgroup=connattrsgroup, token=authtoken, connection_state=connection_state, uniqueuser=uniqueuser)
             connection.save()
 
+            qs = Contact.objects.filter(email=uu['email'])
+            #msg = "      Contact qs.count() = " + str(qs.count()) + " for " + str(uu['email'])
+            #logger.info(msg)
+            if qs.count() > int(0):
+                contact = qs[0]
+                #msg = "      contact " + str(contact) + " set_connected()"
+                #logger.info(msg)
+                contact.set_connected()
+                #msg = "      contact " + str(contact) + " set_renewed()"
+                #logger.info(msg)
+                contact.set_renewed()
+
             # update the connections map
             #(imageattributes, debugprint) = make_connections_by_project_img()
             if settings.VERBOSE:
                 msg = "    authtoken: " + str(authtoken)
                 logger.info(msg)
-                msg = "    attributes: " + str(attributes)
-                logger.info(msg)
+                #msg = "    attributes: " + str(attributes)
+                #logger.info(msg)
         else:
-            authtoken = 'no-accesstoken-for-uu:'
+            authtoken = 'Access not allowed.  Please contact the project sponsor.'
+            attributes.append(('Authorization', authtoken))
+            return render(request, 'attrs.html', {'paint_logout': False, 'attributes': attributes})
 
         if RETURN_TO:
             request.session["Authorization"] = "Bearer " + str(authtoken)
@@ -476,23 +482,39 @@ def ldg_authenticated(request):
             if settings.VERBOSE:
                 msg = "    return_to: " + str(return_to)
                 logger.info(msg)
-            return HttpResponseRedirect(return_to)
+
+            return_domain = return_to.split('/')
+            try:
+                return_domain = return_domain[0] + '//' + return_domain[2]
+            except KeyError:
+                pass
+
+            csp = "default-src 'none'; "
+            for src in ["script-src", "connect-src", "img-src", "style-src", "base-uri", "form-action"]:
+                csp = csp + src + " 'self' " + return_domain + "; "
+            csp = csp + "object-src 'none'; frame-ancestors 'none'; block-all-mixed-content"
+
+            responseheaders = {}
+            responseheaders['content-security-policy'] = csp
+            return HttpResponseRedirect(return_to, headers=responseheaders)
         else:
             logouturl = settings.LDG_BASE + 'logout/' + str(connection_state)
             msg = "    logouturl: " + str(logouturl)
             logger.info(msg)
             return render(request, 'attrs.html', {'paint_logout': True, 'attributes': attributes, 'logouturl': logouturl})
     else:
-        msg = " project_state " + str(connection_state) + " is not a logindotgov state: " + str(state)
-        logger.info(msg)
+        if settings.VERBOSE:
+            msg = " project_state " + str(connection_state) + " is not a logindotgov state: " + str(state)
+            logger.info(msg)
 
     return HttpResponseRedirect(ERROR_REDIRECT)
 
 def logout(request, connection_state = None):
-    msg = "   logout request: " + str(request)
-    logger.info(msg)
-    msg = "   logout connection_state: " + str(connection_state)
-    logger.info(msg)
+    if settings.VERBOSE:
+        msg = "   logout request: " + str(request)
+        logger.info(msg)
+        msg = "   logout connection_state: " + str(connection_state)
+        logger.info(msg)
 
     if 'logout' in str(request) and connection_state is not None:
         qs = Connection.objects.filter(connection_state=connection_state)
@@ -509,8 +531,9 @@ def logout(request, connection_state = None):
         logout = logout + "state=" + connection_state 
 
         
-        msg = '   logout HttpResponseRedirect( ' + str(logout) + ' )'
-        logger.info(msg)
+        if settings.VERBOSE:
+            msg = '   logout HttpResponseRedirect( ' + str(logout) + ' )'
+            logger.info(msg)
         return HttpResponseRedirect(logout)
     else:
         return HttpResponseRedirect(settings.LDG_BASE + "oops")
@@ -800,10 +823,9 @@ def redact_ua(ua):
        qs[0].redact_attr()
 
 def attrsjwt(request, access_token = None):
-    msg = "   attrsjwt -- request = " + str(request)
-    logger.info(msg)
-    msg = "   attrsjwt -- access_token = " + str(access_token)
-    logger.info(msg)
+    if settings.VERBOSE:
+        msg = "   attrsjwt -- access_token = " + str(access_token)
+        logger.info(msg)
 
     signedattributes = None
     if access_token:
@@ -818,8 +840,9 @@ def attrsjwt(request, access_token = None):
             # disabled for debugging -- remember it is a one time token
             fetchedtoken = connection.token.get_token()
             if str(fetchedtoken) not in str(authtoken):
-                msg = "fetchedtoken not equal authtoken for " + str(fetchedtoken) + " and " + str(authtoken)
-                logger.info(msg)
+                if settings.VERBOSE:
+                    msg = "fetchedtoken not equal authtoken for " + str(fetchedtoken) + " and " + str(authtoken)
+                    logger.info(msg)
                 signedattributes = fetchedtoken  
                 fetchedtoken = None
             else:
@@ -827,8 +850,8 @@ def attrsjwt(request, access_token = None):
                     connection.token.expire_token()
                 encode_key = connection.project.get_decode_key()
                 user_attributes = connection.get_user_attributes()
-                msg = "   user_attributes: " + str(user_attributes)
-                logger.info(msg)
+                #msg = "   user_attributes: " + str(user_attributes)
+                #logger.info(msg)
 
                 dar = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
                 alldecrypted = '\n' 
@@ -844,21 +867,21 @@ def attrsjwt(request, access_token = None):
                     alldecrypted = decrypteddata + ',' + alldecrypted
 
                 request_attributes = connection.get_request_attributes()
-                msg = "   request_attributes: " + str(request_attributes)
-                logger.info(msg)
+                #msg = "   request_attributes: " + str(request_attributes)
+                #logger.info(msg)
                 for ra in request_attributes:
                     #msg = '     request_attribute ra: ' + str(ra)
                     #logger.info(msg)
                     aledar = ast.literal_eval(ra)
-                    msg = '   aledar: ' + str(aledar)
-                    logger.info(msg)
+                    #msg = '   aledar: ' + str(aledar)
+                    #logger.info(msg)
                     dataatrest = bytes_in_string(aledar)
                     #msg = '   dataatrest: ' + str(dataatrest)
                     #logger.info(msg)
     
                     decrypteddata = dar.decrypt(dataatrest).decode()
-                    msg = "   decrypteddata: " + str(decrypteddata)
-                    logger.info(msg)
+                    #msg = "   decrypteddata: " + str(decrypteddata)
+                    #logger.info(msg)
                     if decrypteddata.startswith('{') and decrypteddata.endswith('}'):
                         alldecrypted = decrypteddata + ',' + alldecrypted
                    
@@ -867,34 +890,49 @@ def attrsjwt(request, access_token = None):
 
                 if len(alldecrypted) > int(1):
                     alldecrypted = alldecrypted[:-2]
-                msg = "   alldecrypted: " + str(alldecrypted)
-                logger.info(msg)
+                #msg = "   alldecrypted: " + str(alldecrypted)
+                #logger.info(msg)
     
                 dit = Fernet(encode_key)
                 data_in_transit = dit.encrypt(alldecrypted.encode())
-                msg = "   data_in_transit: " + str(data_in_transit)
-                logger.info(msg)
+                #msg = "   data_in_transit: " + str(data_in_transit)
+                #logger.info(msg)
     
                 attrs = {}
                 attrs['dit'] = str(data_in_transit)
-                msg = "   attrs = " + str(attrs)
-                logger.info(msg)
+                #msg = "   attrs = " + str(attrs)
+                #logger.info(msg)
                 signedattributes = jwt.encode(attrs, settings.JWT_PRIVATE_KEY, algorithm="RS256")
-                msg = "   leaving attrsjwt -- access_token = " + str(access_token)
-                logger.info(msg)
-                msg = "   attrsjwt -- signedattributes = " + str(signedattributes)
-                logger.info(msg)
+                #msg = "   leaving attrsjwt -- access_token = " + str(access_token)
+                #logger.info(msg)
+                #msg = "   attrsjwt -- signedattributes = " + str(signedattributes)
+                #logger.info(msg)
         else:
             msg = "  cqs.count() is zero for access_token " + str(access_token)
             logger.info(msg)
 
-    msg = "   attrsjwt -- return signedattributes " + str(signedattributes)
-    logger.info(msg)
+    if settings.VERBOSE:
+        msg = "   attrsjwt -- return signedattributes " + str(signedattributes)
+        logger.info(msg)
     return render(request, 'signedattrs.html', {'attributes': signedattributes})
 
+def get_did(request, access_token = None):
+    if settings.VERBOSE:
+        msg = "   get_did -- access_token = " + str(access_token)
+        logger.info(msg)
+
+    fernet_key_id = None
+    if access_token:
+        aqs = AuthToken.objects.filter(token=access_token)
+        authtoken = None
+        if aqs.count() > int(0):
+            authtoken = aqs[0]
+        cqs = Connection.objects.filter(token=authtoken)
+        if cqs.count() > int(0):
+            fernet_key_id = cqs[0].project.get_did()
+    return render(request, 'did.html', {'did': fernet_key_id})
+
 def at2uu(request, access_token = None):
-    msg = "   at2uu -- request = " + str(request)
-    logger.info(msg)
     msg = "   at2uu -- access_token = " + str(access_token)
     logger.info(msg)
 
@@ -1072,16 +1110,16 @@ def demoapp_python(request):
         template = srcfile.read()
 
     data = {}
-    msg = "   demoapp request -- request = " + str(request)
-    logger.info(msg)
+    #msg = "   demoapp request -- request = " + str(request)
+    #logger.info(msg)
     data['request'] = request 
 
     access_token = None
     if 'access_token=' in str(request):
         (junk, access_token) = str(request).split('=')
         access_token = access_token[:-2]
-    msg = "   demoapp landing -- access_token = " + str(access_token)
-    logger.info(msg)
+    #msg = "   demoapp landing -- access_token = " + str(access_token)
+    #logger.info(msg)
 
     try:
         msg = "   request.headers = " + str(request.headers)
@@ -1231,6 +1269,59 @@ def demoapp_authorization(request, access_token = None):
 def ldg_auth_error(request):
     data = "Oopps, something went wrong!"
     return render(request, 'demoapp.html', {'data': data})
+
+
+def renew_access(request, access_token = None):
+    data = "renew_access request: " + str(request)
+    #data = data + "renew_access access_token: " + str(access_token)
+    if access_token:
+        authtoken = None
+        aqs = AuthToken.objects.filter(token=access_token)
+        if aqs.count() > int(0):
+            authtoken = aqs[0]
+            data = data + ' authtoken = ' + str(authtoken)
+            authtoken.expire_token()
+            tokenlist = []
+            tokenlist.append(authtoken)
+            cqs = Contact.objects.filter(renewal_tokens__in=tokenlist)
+            if cqs.count() > int(0):
+                cqs[0].set_renewed()
+                data = 'Thanks!  You are all set for another ' + str(settings.CONTACT_RENEWAL_PERIOD_DAYS) + ' days!'
+            else:
+                #data = data + "  cqs.count = " + str(cqs.count()) 
+                data = "Oopps, something went wrong!  Token " + str(access_token) + " no longer exists."
+        else:
+            #data = data + "  aqs.count = " + str(aqs.count()) 
+            data = "Oopps, something went wrong!  Token " + str(access_token) + " no longer exists."
+    return render(request, 'renewed.html', {'data': data})
+
+def remove_access(request, access_token = None):
+    #data = "remove_access request: " + str(request)
+    #data = data + "remove_access access_token: " + str(access_token)
+    data = ''
+    if access_token:
+        authtoken = None
+        aqs = AuthToken.objects.filter(token=access_token)
+        if aqs.count() == int(1):
+            authtoken = aqs[0]
+            data = data + ' authtoken = ' + str(authtoken)
+            authtoken.expire_token()
+            tokenlist = []
+            tokenlist.append(authtoken)
+            cqs = Contact.objects.filter(renewal_tokens__in=tokenlist)
+            if cqs.count() > int(0):
+                msg = '        Account ' + str(cqs[0]) + ' has been deleted on request.'
+                logger.info(msg)
+                cqs[0].delete()
+                data = 'Your account has been deleted as requested.'
+            else:
+                data = 'Ooopps!  We were unable to delete your account.  Please contact ssopadmin.gsl@noaa.gov'
+                msg = data + ' --- authtoken = ' + str(authtoken)
+                logger.info(msg)
+        else:
+            data = 'Ooopps!  Something went wrong.  Please contact ssopadmin.gsl@noaa.gov'
+    return render(request, 'renewed.html', {'data': data})
+
 
 def graphnodeByLabelPnameNodetype(name, pname, nodetype):
     qs = GraphNode.objects.filter(name=name, projectname=pname, nodetype=nodetype)
@@ -2629,8 +2720,8 @@ def index(request):
         #    logger.info(msg)
         
         username = str(email)
-        msg = '      username from SAML attributes: ' + str(username)
-        logger.info(msg)
+        #msg = '      username from SAML attributes: ' + str(username)
+        #logger.info(msg)
 
         user = None
         qs = usermodel.objects.filter(email=email)

@@ -7,14 +7,11 @@ from __future__ import unicode_literals
 # https://stackoverflow.com/questions/19475955/using-django-models-in-external-python-script
 from django.core.management.base import BaseCommand
 
-from sites.models import add_none_contact, get_or_add_organization_by_name, add_none_project, add_none_token
-from ssop import settings
+from sites.models import review_contacts
+
 
 class Command(BaseCommand):
-    help = "adds the NONE email Contact, Organization, and Project if needed"
+    help = "Reviews last connection time of all Contacts and sends a notice"
 
     def handle(self, *args, **options):
-        add_none_contact()
-        get_or_add_organization_by_name(settings.NONE_NAME)
-        add_none_project()
-        add_none_token()
+        review_contacts()

@@ -17,7 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
-from sites.views import getattrs, index, project_ldg, showattrs, attrsjwt, demoapp_python, demoapp_authorization, oops, connections_by_project, generate_urlsafe_token, generate_fernet_key, pubcert, project_userlist, at2uu, get_cwd
+from sites.views import getattrs, index, project_ldg, showattrs, attrsjwt, demoapp_python, demoapp_authorization, oops, connections_by_project, generate_urlsafe_token, generate_fernet_key, pubcert, project_userlist, at2uu, get_cwd, get_did, renew_access, remove_access
 
 app_name = 'sites'
 
@@ -38,5 +38,9 @@ urlpatterns = [
     path('fernetkey/', generate_fernet_key, name='fernetkey'),
     path('pubcert/', pubcert),
     path('getcwd/', get_cwd),
+    path('getdid/<str:access_token>/', get_did, name='get_did'),
+    path('getdid/<str:access_token>/', get_did, name='get_did'),
+    path('renew/<str:access_token>/', renew_access, name='renew_access'),
+    path('remove/<str:access_token>/', remove_access, name='remove_access'),
 ]
 

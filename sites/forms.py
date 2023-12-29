@@ -3,6 +3,16 @@ from django.contrib.admin.widgets import FilteredSelectMultiple
 from sites.models import Contact, Organization, Project, Sysadmin
 import ssop.settings as settings
 
+class ContactAdminForm(forms.ModelForm):
+    class Meta:
+        model = Contact
+        field_order = ('email', 'firstname', 'lastname', 'last_connection_time', 'organizations', 'organization')
+        fields = field_order
+
+    def __init__(self, *args, **kwargs):
+        super(ContactAdminForm, self).__init__(*args, **kwargs)
+
+
 class ProjectForm(forms.Form):
     class Meta:
         model = Project
@@ -22,11 +32,10 @@ class ProjectForm(forms.Form):
 
 
 class ProjectAdminForm(forms.ModelForm):
-            
     class Meta:
         model = Project
         #fields = '__all__'
-        field_order = ('name', 'organization', 'verbose_name', 'return_to', 'error_redirect', 'enabled', 'display_order', 'decrypt_key', 'logoimg', 'userlist', 'app_params', 'expiretokens', 'graphnode', 'state', 'queryparam', 'querydelimiter', )
+        field_order = ('name', 'organization', 'verbose_name', 'return_to', 'error_redirect', 'enabled', 'display_order', 'decrypt_key', 'logoimg', 'owner', 'userlist', 'app_params', 'expiretokens', 'graphnode', 'state', 'queryparam', 'querydelimiter', )
         fields = field_order
 
 

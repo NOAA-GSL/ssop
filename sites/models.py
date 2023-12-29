@@ -55,6 +55,17 @@ def runcmdl(cmdl, execute):
             result = "exception: " + str(e) + ", result = " + str(result)
     return status, result
 
+def get_or_add_authtoken(token):
+    qs = AuthToken.objects.filter(token=token)
+    if qs.count() == int(0):
+        if 'newtoken' in str(token):
+            rettoken = AuthToken()
+        else:
+            rettoken = AuthToken(token=token)
+        rettoken.save()
+    else:
+        rettoken = qs[0]
+    return rettoken
 
 def get_or_add_sysadmin(user, homeorg, orglist):
     try:
@@ -209,11 +220,26 @@ def add_groups_and_permissions():
         msg = str(now) + ":GroupobjectAddedPerms:" + groupname
         logger.info(msg)
 
+def add_none_token():
+    token = get_or_add_authtoken(settings.NONE_NAME)
+    token.set_expire_time(settings.NONE_NEVER_EXPIRES)
+    token.set_renewed(settings.NONE_NEVER_EXPIRES)
+
 def add_none_contact():
-    contacts = Contact.objects.filter(email=settings.NONE_EMAIL)
+    contacts = Contact.objects.filter(email=settings.NONE_EMAIL, firstname='none', lastname='none')
     if contacts.count() == int(0):
-        newcontact = Contact.objects.create(email=settings.NONE_EMAIL)
+        newcontact = Contact.objects.create(email=settings.NONE_EMAIL, firstname='none', lastname='none')
         newcontact.save()
+    contacts = Contact.objects.filter(email=settings.ANYONE_EMAIL, firstname='anyone', lastname='anywhere')
+    if contacts.count() == int(0):
+        newcontact = Contact.objects.create(email=settings.ANYONE_EMAIL, firstname='anyone', lastname='anywhere')
+        newcontact.save()
+
+def add_none_project():
+    project = Project.objects.filter(name=settings.NONE_NAME)
+    if project.count() == int(0):
+        newproject = Project.objects.create(name=settings.NONE_NAME)
+        newproject.save()
    
 def add_contacts_list(userlist):
     for line in userlist.split('\n'):
@@ -226,7 +252,213 @@ def add_contacts_list(userlist):
             if qs.count() == int(0):
                 newcontact = Contact.objects.create(email=email, firstname=firstname, lastname=lastname)
                 newcontact.save()
-   
+  
+def check_for_update(filename):
+    #msg = "    check_for_update " + str(filename)
+    #logger.info(msg)
+    stats = os.stat(filename)
+    temp = str(filename).replace("/","_",10)
+    temp = temp.split('_')
+    fn = 'unknown'
+    if len(temp) > int(1):
+        fn = temp[len(temp)-1]
+    prevfn = "/usr/share/nginx/html/uploads/stats_" + fn + ".prev"
+    need_to_update = False 
+
+    prevctime = 0.0
+    if os.path.exists(prevfn):
+        fp = open(prevfn, 'r')
+        prevctime = fp.read()
+        fp.close()
+        
+    if float(stats.st_ctime) > float(prevctime):
+        need_to_update = True
+        fp = open(prevfn, 'w')
+        fp.write(str(stats.st_ctime))
+        fp.close()
+
+    return need_to_update 
+       
+ 
+def review_contacts():
+    utcstart = datetime.datetime.utcnow()
+    utcstart = utcstart.replace(tzinfo=pytz.UTC)
+    utcstart = utcstart.replace(microsecond = 0)
+    msg = "\n\n   review_contacts -- utcstart: " + str(utcstart)
+    logger.info(msg)
+    msg = "   CONTACT_RENEWAL_PERIOD_TIMEDELTA: " + str(settings.CONTACT_RENEWAL_PERIOD_TIMEDELTA)
+    logger.info(msg)
+    loopcount = int(1)
+    while True:
+        checkname = "/opt/ssop/ssop/settings.py"
+        if check_for_update(checkname):
+            msg = "   need to update -- exiting"
+            logger.info(msg)
+            sys.exit(-1)
+        #else:
+        #    msg = "   " + str(checkname) + " is up to date"
+        #    logger.info(msg)
+
+        utcnow = datetime.datetime.utcnow()
+        utcnow = utcnow.replace(tzinfo=pytz.UTC)
+        utcnow = utcnow.replace(microsecond = 0)
+        #msg = str(loopcount) + " -- " + str(utcnow)
+        #logger.info(msg)
+        for token in AuthToken.objects.all():
+            if utcnow > token.get_expiration_time():
+                if settings.NONE_NAME not in str(token):
+                    msg = "       delete token: " + str(token)
+                    for user in Contact.objects.all():
+                        if str(token) in str(user.get_renewal_tokens()):
+                            msg = msg + " for " + str(user)
+                            break
+                    logger.info(msg)
+                    token.delete()
+            
+        none_email = str(settings.NONE_EMAIL)
+        none_email = none_email.replace('#', '')
+        for user in Contact.objects.all():
+            if none_email in str(user.email):
+                continue
+    
+            if str(user.email) not in str(settings.EMAIL_TEST_USERS):
+                continue
+            
+        none_email = str(settings.NONE_EMAIL)
+        none_email = none_email.replace('#', '')
+        for user in Contact.objects.all():
+            if none_email in str(user.email):
+                continue
+    
+            if str(user.email) not in str(settings.EMAIL_TEST_USERS):
+                continue
+
+            utcnow = datetime.datetime.utcnow()
+            utcnow = utcnow.replace(tzinfo=pytz.UTC)
+            utcnow = utcnow.replace(microsecond = 0)
+            msg = "    utcnow: " + str(utcnow)
+            #logger.info(msg)
+    
+            last_connected = user.last_connected() 
+            msg = "       user: " + str(user) + "   last_connected: " + str(last_connected) 
+    
+            renewal_tokens = user.get_renewal_tokens()
+            num_tokens = renewal_tokens.count()
+
+            msg = msg + " and has " + str(num_tokens) + " renewal tokens"
+            #logger.info(msg)
+
+
+            if num_tokens <= int(1):
+                renewal_token = get_or_add_authtoken('newtoken')
+                renewal_token.save()
+                expires_dt = utcnow + (2 * settings.CONTACT_RENEWAL_PERIOD_TIMEDELTA)
+                renewal_token.set_expire_time(expires_dt + datetime.timedelta(seconds=30))
+                renewal_token.set_renewed(expires_dt)
+                user.add_renewal_token(renewal_token)
+                for dt in settings.CONTACT_RENEWAL_PERIOD_WARNINGS:
+                    accessed = expires_dt - dt
+                    renewal_token = get_or_add_authtoken('newtoken')
+                    renewal_token.save()
+                    renewal_token.set_expire_time(expires_dt)
+                    renewal_token.set_renewed(accessed)
+                    user.add_renewal_token(renewal_token)
+                msg = "       " + str(user) + " queued for removal" 
+                logger.info(msg)
+
+            for rt in user.get_renewal_tokens():
+                expires = rt.get_expiration_time()
+                if utcnow > expires:
+                    try:
+                        if settings.NONE_NAME not in str(rt):
+                            rt.delete()
+                            msg = " ----- DELETED token ----- " + str(rt) + " for " + str(user) + " at " + str(utcnow)
+                            logger.info(msg)
+                    except ValueError as ve:
+                        msg = " ----- value error ve: " + str(ve)
+                        logger.info(msg)
+
+            for rt in user.get_renewal_tokens():
+                #msg = "        rt: " + str(rt)
+                #logger.info(msg)
+                if settings.NONE_NAME in str(rt.token):
+                    continue
+
+                msg = "        rt: " + str(rt)
+                #logger.info(msg)
+                expires = rt.get_expiration_time()
+                msg = "    renewal_token " + str(rt) + " expires at " + str(expires)
+                #logger.info(msg)
+                warned = rt.get_renewal_time()
+                msg = "    renewal_token warned: " + str(warned)
+                #logger.info(msg)
+
+                body_comment = ''
+                #print("   utcnow + settings.CRPT: " + str(utcnow + settings.CONTACT_RENEWAL_PERIOD_TIMEDELTA))
+                #logger.info(msg)
+
+                if utcnow >= warned:
+                    #msg = "  utcnow >= warned:"
+                    #logger.info(msg)
+                    #msg = "            warned: " + str(warned)
+                    #logger.info(msg)
+                    #msg = "            utcnow: " + str(utcnow)
+                    #logger.info(msg)
+                    expires = expires.replace(microsecond = 0)
+                    expiresstr = expires.strftime('%Y-%m-%d %H:%M:%S')
+                    warned = warned.replace(microsecond = 0)
+                    warnedstr = warned.strftime('%Y-%m-%d %H:%M:%S')
+                    lcdt = last_connected.replace(microsecond = 0)
+                    lcdt = lcdt.strftime('%Y-%m-%d %H:%M:%S')
+
+                    removed_in_dtdelta = expires - warned
+                    if ',' in str(removed_in_dtdelta):
+                        removed_in_dtdelta = removed_in_dtdelta.replace(', 0:00:00', '')
+                    removed_in_dtdeltastr = str(removed_in_dtdelta)
+
+                    kwargs = {"user": user, "lcdt": lcdt, "body_comment": body_comment}
+                    kwargs["renewal_token"] = rt
+                    kwargs["expires_datetime"] = expiresstr
+                    kwargs["warned_datetime"] = warnedstr
+                    kwargs["removed_in_dtdelta"] = removed_in_dtdeltastr
+                    send_removal_notice_email(kwargs)
+                    #msg = "\n            ----- SEND_removal_notice_email ----- rt = " + str(rt) + "\n"
+                    #logger.info(msg)
+                    rt.set_renewed(settings.NONE_NEVER_EXPIRES)
+                #else:
+                #    msg = "   utcnow < warned"
+                #    logger.info(msg)
+
+            #msg = "           ------ user.get_renewal_tokens().count(): " + str(user.get_renewal_tokens().count())
+            #logger.info(msg)
+
+            if user.get_renewal_tokens().count() == int(2):
+                try:
+                    msg = " ----- account " + str(user) + " deleted ----- "
+                    logger.info(msg)
+                    user.delete()
+                except ValueError:
+                    msg = " ----- failed to delete account " + str(user) + " ValueError ----- "
+                    logger.info(msg)
+             
+        if int(settings.ACCOUNT_REVIEW_NAPTIME) > int(0):
+            #msg = "    sleeping " + str(settings.ACCOUNT_REVIEW_NAPTIME) + ' seconds.'
+            #logger.info(msg)
+            time.sleep(settings.ACCOUNT_REVIEW_NAPTIME)
+            #msg = "    done sleeping"
+            #logger.info(msg)
+        else:
+            msg = "    exiting .... " + str(settings.ACCOUNT_REVIEW_NAPTIME) + ' seconds.'
+            logger.info(msg)
+            sys.exit(-1)
+        utcnow = datetime.datetime.utcnow()
+        utcnow = utcnow.replace(tzinfo=pytz.UTC)
+        utcnow = utcnow.replace(microsecond = 0)
+        #msg = "    end of loop " + str(loopcount) + " at " + str(utcnow)
+        #logger.info(msg)
+        loopcount = int(1) + loopcount
+
+
 def hash_to_fingerprint(data):
     dkeys = []
     for k in data.keys():
@@ -265,6 +497,15 @@ def get_or_add_organization_by_name(name):
         org = qs[0]
     return org
 
+def add_organization_relationship(parent, child):
+    cqs = Organization.objects.filter(name=child.name)
+    if cqs.count() == int(1):
+        child = cqs[0]
+        pqs = Organization.objects.filter(name=parent.name)
+        if pqs.count() == int(0):
+            child.parent = pqs[0]
+            child.save()
+          
 def get_or_add_decrypt_key(keyname=None):
     key = None
     if keyname is not None:
@@ -370,7 +611,12 @@ class About(models.Model):
 class Contact(models.Model):
     firstname = models.CharField(max_length=150, default='firstname')
     lastname = models.CharField(max_length=150, default='lastname')
-    email = models.EmailField(null=True, blank='noemail@default.tld')
+    email = models.EmailField(unique=True, null=True, blank=settings.NONE_EMAIL, help_text=mark_safe(settings.HELP_CONTACT_EMAIL))
+    last_connection_time = models.DateTimeField(null=True, default=settings.DEFAULT_DATETIME)
+    renewal_tokens = models.ManyToManyField('AuthToken', related_name='contact_renewal_tokens')
+    organizations = models.ManyToManyField('Organization', related_name='contact_organizations')
+    organization = models.ForeignKey('Organization', default=1, related_name='contact_organization',
+                                     verbose_name='Primary Organization', on_delete=models.CASCADE)
 
     def __str__(self):
         return  self.firstname + ' ' + self.lastname + ' (' + str(self.email) + ')'
@@ -382,13 +628,43 @@ class Contact(models.Model):
 
     def initstate(self):
         need_to_update = False
-        if self.email:
+        if settings.NONE_EMAIL not in self.email:
+            email = str(self.email).lower()
+            namestr, domains = str(self.email).split('@')
             if 'firstname' in self.firstname:
-                namestr, domain = str(self.email).split('@')
                 namestr = str(namestr).split('.')
                 self.firstname = namestr[0].capitalize()
                 self.lastname = namestr[len(namestr) - 1].capitalize()
+                self.last_connection_time = settings.DEFAULT_DATETIME
                 need_to_update = True
+
+            try:
+                if settings.NONE_NAME in str(self.organization): 
+                    domains = str(domains).split('.')
+                    #msg = "   domains: " + str(domains)
+                    #logger.info(msg)
+                    homeorg = get_or_add_organization_by_name(domains[0])
+                    #msg = "   homeorg: " + str(homeorg)
+                    #logger.info(msg)
+                    homeorg = get_or_add_organization_by_name(domains[0])
+                    childorg = homeorg
+                    self.organization = homeorg
+                    self.organizations.add(homeorg)
+                    self.last_connection_time = settings.DEFAULT_DATETIME
+                    for d in domains:
+                        neworg = get_or_add_organization_by_name(d)
+                        #msg = "   neworg: " + str(neworg)
+                        #logger.info(msg)
+                        self.organizations.add(neworg)
+                        if neworg == childorg:
+                            continue
+                        add_organization_relationship(neworg, childorg)
+                        #msg = "add_organization_relationship( " + str(neworg) + ", " + str(childorg) + " )"
+                        #logger.info(msg)
+                        childorg = neworg
+                    need_to_update = True
+            except ValueError:
+                pass
         return need_to_update
               
     def get_value(self):
@@ -397,6 +673,61 @@ class Contact(models.Model):
         rv['lastname'] = self.lastname
         rv['email'] = self.email
         return str(rv)
+
+    def last_connected(self):
+        return self.last_connection_time
+
+    def set_connected(self):
+        utcnow = datetime.datetime.utcnow()
+        utcnow = utcnow.replace(tzinfo=pytz.UTC)
+        self.last_connection_time = utcnow
+        self.save()
+
+    def last_renewed(self):
+        return self.renewal_time
+
+    def get_renewal_tokens(self):
+        try:
+            qs = self.renewal_tokens.get_queryset()
+        except:
+            qs = AuthToken.objects.filter(token=settings.NONE_NAME)
+        return qs
+
+    def add_renewal_token(self, token):
+        self.renewal_tokens.add(token)
+        self.save()
+
+    def set_renewed(self):
+        utcnow = datetime.datetime.utcnow()
+        utcnow = utcnow.replace(tzinfo=pytz.UTC)
+        self.last_connection_time = utcnow
+        #msg = "      set_renewed --- Contact " + str(self) + " lct = " + str(self.last_connection_time)
+        #logger.info(msg)
+        for t in self.get_renewal_tokens():
+            if settings.NONE_NAME not in str(t):
+                t.delete() 
+                msg = "       delete token t: " + str(t)
+                logger.info(msg)
+        self.save()
+        #msg = "      set_renewed --- Contact self " + str(self) + " last connected = " + str(self.last_connected())
+        #logger.info(msg)
+
+    def organizations_list(self):
+        olist = []
+        for o in self.organizations.get_queryset():
+            olist.append(str(o))
+        if len(olist) > int(1):
+           olist.sort
+        return olist
+
+    def projects(self):
+        projects = []
+        for p in Project.objects.all():
+            if p.authorized(self):
+                projects.append(str(p))
+        if len(projects) > int(1):
+            projects.sort()
+        return projects 
 
 
 class Project(models.Model):
@@ -416,6 +747,7 @@ class Project(models.Model):
     graphnode = models.ForeignKey('sites.GraphNode', null=True, blank=True, on_delete=models.SET_NULL, help_text=mark_safe(settings.HELP_GRAPHNODE))
     logoimg = models.ImageField(upload_to = get_upload_path, verbose_name="Logo Image", null=True, blank=True, help_text=mark_safe(settings.HELP_LOGOIMG))
     logobin = models.BinaryField(null=True, blank=True)
+    owner = models.ForeignKey('sites.Contact', null=True, blank=True, on_delete=models.SET_NULL, help_text=mark_safe(settings.HELP_PROJECT_OWNER))
     userlist = models.ManyToManyField('sites.Contact', related_name='project_userlist', help_text=mark_safe(settings.HELP_USERLIST))
     app_params = models.TextField(max_length=4096, null=True, default='{}', help_text=mark_safe(settings.HELP_APP_PARAMS))
     
@@ -472,8 +804,8 @@ class Project(models.Model):
                     if str(imgpath).endswith(ft):
                         filetype = ft
                         break
-                msg = "   filetype is: " + str(filetype)
-                logger.info(msg)
+                #msg = "   filetype is: " + str(filetype)
+                #logger.info(msg)
                 if filetype:
                     if os.path.exists(imgpath):
                         os.rename(imgpath, destination_filename)
@@ -485,8 +817,8 @@ class Project(models.Model):
                 imgpath = '   ve: ' + str(ve)
             except SuspiciousFileOperation as sfo:
                 imgpath = '   sfo: ' + str(sfo)
-            msg = "   imgpath is: " + str(imgpath)
-            logger.info(msg)
+            #msg = "   imgpath is: " + str(imgpath)
+            #logger.info(msg)
 
         if not settings.DEBUG:
             if not self.expiretokens:
@@ -549,6 +881,15 @@ class Project(models.Model):
              pass
         return key
 
+    def get_did(self):
+        did = None 
+        try:
+            ale = ast.literal_eval(self.get_app_params())
+            did = ale['fernet-key-id'] 
+        except KeyError:
+            pass
+        return did 
+
     def is_enabled(self):
         return self.enabled
 
@@ -587,27 +928,30 @@ class Project(models.Model):
         return retstr
 
     def authorized(self, uu):
-        msg = "    authorized uu: " + str(uu)
-        logger.info(msg)
-        #uu = ast.literal_eval(uustr)
-        #msg = "    uu: " + str(uu)
+        #msg = "    authorized uu: " + str(uu)
         #logger.info(msg)
+
         auth = False 
+        if settings.DEFAULT_PROJECT_NAME in self.name:
+            auth = True
+        if self.name.startswith('demo'):
+            auth = True
+
         try:
             email = uu['email']
         except KeyError:
             email = 'noemail'
         email = str(email).lower()
-        msg = "    email: " + str(email)
-        logger.info(msg)
         for a in self.userlist.get_queryset():
-            msg = "    a: " + str(a)
-            logger.info(msg)
             if email in str(a).lower():
                 auth = True
                 break
-        msg = "    authorized auth: " + str(auth)
-        logger.info(msg)
+        if auth:
+            msg = str(email) + " is authorized"
+        else:
+            msg = str(email) + " NOT AUTHORIZED"
+        #msg = msg + " for " + self.name
+        #logger.info(msg)
         return auth
 
     def contact_emails(self):
@@ -743,13 +1087,30 @@ class AuthToken(models.Model):
         self.expires = mindt.replace(tzinfo=pytz.UTC)
         self.save()
 
+    def get_created_time(self):
+        return self.created
+
+    def get_expiration_time(self):
+        return self.expires
+
+    def set_expire_time(self, expires):
+        self.expires = expires
+        self.save()
+
+    def get_renewal_time(self):
+        return self.accessed
+
+    def set_renewed(self, renewed):
+        self.accessed = renewed
+        self.save()
+
 
 class Connection(models.Model):
     name = models.CharField(max_length=150, default='setme')
     project = models.ForeignKey(Project, null=True, blank=True, on_delete=models.SET_NULL)
     attrsgroup = models.ForeignKey('sites.AttributeGroup', null=True, blank=True, on_delete=models.CASCADE, related_name='sites_Connection_attrsgroup')
     uniqueuser = models.ForeignKey('sites.Uniqueuser', null=True, blank=True, on_delete=models.CASCADE, related_name='sites_Connection_uniqueuser', verbose_name='Unique User')
-    token = models.ForeignKey(AuthToken, null=True, blank=True, on_delete=models.SET_NULL)
+    token = models.ForeignKey(AuthToken, null=True, blank=True, on_delete=models.CASCADE)
     connection_state = models.CharField(max_length=50, null=True, default='setme', help_text=mark_safe(settings.HELP_CONNECTION_STATE))
     created = models.DateTimeField(auto_now_add=True)
     loggedout = models.DateTimeField(default=now)
@@ -785,24 +1146,14 @@ class Connection(models.Model):
 
     def get_ca(self):
         ca = [] 
-        msg = "    model -- get_ca()"
-        logger.info(msg)
         for a in self.attrsgroup.get_attrs():
-            msg = "    model -- get_ca() -- a: " + str(a)
-            logger.info(msg)
             ca.append(a.get_attributes())
         return ca
 
     def get_request_attributes(self):
-        msg = "    model -- get_request_attributes()"
-        logger.info(msg)
         attributes = []
         for ca in self.get_ca():
-            msg = "    ca: " + str(ca)
-            logger.info(msg)
             attributes.append(ca)
-        msg = "    attributes: " + str(attributes)
-        logger.info(msg)
         return attributes
 
     def get_ua(self):
@@ -999,29 +1350,12 @@ class Uniqueuser(models.Model):
         return str(at)
 
 
-class OrganizationNode(models.Model):
-    parent = models.ForeignKey('sites.Organization', null=True, blank=True, on_delete=models.CASCADE, related_name='organization_parent')
-    child = models.ForeignKey('sites.Organization', null=True, blank=True, on_delete=models.CASCADE, related_name='organization_child')
-
-    def __str__(self):
-        return str(self.parent) + " has " + str(self.child)
-
-    def name(self):
-        return str(self.parent)
-
-    def leaf(self):
-        return str(self.child)
-
-    def get_fields(self):
-        return [(field.name, getattr(self,field.name)) for field in OrganizationNode._meta.fields]
-
-
 class Organization(models.Model):
     name = models.CharField(max_length=50, null=True, default='unknownOrganization')
-    userlist = models.ManyToManyField('sites.Contact', related_name='organization_userlist')
     projects = models.ManyToManyField(Project, related_name='organization_projects')
     updated = models.DateTimeField(auto_now_add=True)
     graphnode = models.ForeignKey('sites.GraphNode', null=True, blank=True, on_delete=models.SET_NULL)
+    parent = models.ForeignKey('sites.Organization', null=True, blank=True, on_delete=models.CASCADE, related_name='organization_parent')
 
     class Meta:
         verbose_name = 'Organization'
@@ -1075,11 +1409,15 @@ class Organization(models.Model):
             retlist.append((k,v))
         return retlist
 
-    def contacts(self):
+    def users(self):
         users = []
-        for a in self.userlist.get_queryset():
-            users.append(str(a))
-        return str(users)
+        #msg = str(self.projects.get_queryset())
+        #logger.info(msg)
+        for p in self.projects.get_queryset():
+            users.append(p.users())
+        if len(users) > int(1):
+            users.sort()
+        return users
 
     def contact_emails(self):
         users = []
@@ -1358,7 +1696,7 @@ class Sysadmin(models.Model):
 @receiver(user_has_authenticated)
 def post_auth_user_has_authenticated(sender, **kwargs):
     now = datetime.datetime.utcnow()
-    msg = str(now) + ":post_auth_user_has_authenticated = " + str(kwargs['user'].username)
+    msg = str(now) + ":post_auth_user_has_authenticated:" + str(kwargs['user'].username)
     logger.info(msg)
     is_user_a_sysad(**kwargs)
     user_has_authenticated_sendemail(**kwargs)
@@ -1475,4 +1813,90 @@ class Room(models.Model):
         else:
            colors = ('white', 'red')
         return colors
+
+
+def send_removal_notice_email(kwargs):
+    #msg = "\n\n\nsend_removal_notice_email:\n"
+    #logger.info(msg)
+
+    email = kwargs['user'].email
+    firstname = kwargs['user'].firstname
+    last_connected_datetime = str(kwargs['lcdt'])
+    expires_datetime = str(kwargs['expires_datetime'])
+    warned_datetime = str(kwargs['warned_datetime'])
+    removed_in_dtdelta = str(kwargs['removed_in_dtdelta'])
+    body_comment = str(kwargs['body_comment'])
+    renewal_token = str(kwargs['renewal_token'])
+    ymdhms = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    subject = settings.USER_REMOVAL_NOTICE_SUBJECT
+
+    projects = {}
+    #msg = "   email: " + str(email)
+    #logger.info(msg)
+    for p in Project.objects.all():
+        if str(p).lower().startswith(settings.NONE_NAME):
+            continue
+        if p.authorized({"email": email}):
+            if not p.name.startswith('demo') and not p.name.startswith('showattr'):
+                try:
+                    test = projects[str(p)]
+                except KeyError:
+                    projects[str(p)] = {}
+                projects[str(p)]['link'] = settings.LDG_BASE + 'ldg/' + p.name
+                projects[str(p)]['owner'] = str(p.owner)
+    project_list = []
+    project_names = []
+    for k in projects.keys():
+        project_names.append(str(k))
+    if len(project_names) > int(1):
+       project_names.sort()
+    info = '\n'
+    for n in project_names:
+        info = info + '    ' + str(n) + " at " + str(projects[n]['link']) + ' owned by ' + str(projects[n]['owner']) + '\n'
+    project_list = info 
+    #removed_in_dtdelta = str(settings.CONTACT_RENEWAL_PERIOD_TIMEDELTA).split('.')[0]
+    #if ',' in removed_in_dtdelta:
+    #    removed_in_dtdelta = removed_in_dtdelta.replace(', 0:00:00', '')
+    renewal_link = settings.EXTERNAL_URL + 'sites/renew/' + str(renewal_token)
+    remove_account_link = settings.EXTERNAL_URL + 'sites/remove/' + str(renewal_token)
+
+    body = settings.USER_REMOVAL_NOTICE_BODY
+    body = body.replace( 'firstname', firstname )
+    body = body.replace( 'ymdhms', ymdhms )
+    body = body.replace( 'last_connected_datetime', last_connected_datetime )
+    body = body.replace( 'project_list', project_list )
+    body = body.replace( 'renewal_link', renewal_link )
+    body = body.replace( 'remove_account_link', remove_account_link )
+    body = body.replace( 'body_comment', body_comment )
+    body = body.replace( 'removed_in_dtdelta', removed_in_dtdelta )
+    body = body.replace( 'expires_datetime', expires_datetime )
+    body = body.replace( 'warned_datetime', warned_datetime )
+
+    fromaddr = settings.EMAIL_HOST_USER
+    toaddr = [email]
+    try:
+        SEND_EMAIL = False
+        if settings.DEBUG:
+            if str(email) in str(settings.EMAIL_TEST_USERS):
+                #msg = "    send_mail(subject, body, fromaddr, toaddr, fail_silently=False)"
+                #msg = msg + ' -- toaddr: ' + str(toaddr)
+                #msg = msg + ' -- fromaddr: ' + str(fromaddr)
+                #msg = msg + ' -- subject: ' + str(subject)
+                #msg = msg + ' -- body: ' + str(body)
+                #logger.info(msg)
+                SEND_EMAIL = True 
+       
+        if SEND_EMAIL:
+            send_mail(subject, body, fromaddr, toaddr, fail_silently=False)
+            #msg = '           renewal_link: ' + str(renewal_link)
+            #logger.info(msg)
+            #msg = '           remove_account_link: ' + str(remove_account_link)
+            #logger.info(msg)
+        #else:
+        #    msg = "DEBUG -- NOT running: send_mail(subject, 'BODY', fromaddr, toaddr, fail_silently=False)"
+        #    logger.info(msg)
+    except Exception as e:
+        now = datetime.datetime.utcnow()
+        msg = str(now) + ":User has logged in email failed:" + str(email) + ":send_notice_email:" + str(e)
+        logger.info(msg)
 

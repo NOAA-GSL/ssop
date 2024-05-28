@@ -1,0 +1,176 @@
+# https://stackoverflow.com/questions/19475955/using-django-models-in-external-python-script
+from django.core.management.base import BaseCommand
+from django.utils import timezone
+
+import ast
+import pytz
+import os
+import re 
+import json
+
+from ssop import settings
+
+from sites.models import About, Attributes, AttributeGroup, Connection, Contact, Key, Organization, Project, Room, Sysadmin, get_or_add_organization_by_name, \
+                         get_or_add_decrypt_key, get_or_add_contact, get_or_add_group
+
+class Command(BaseCommand):
+    help = "Loads objects from JSON dump files"
+
+    astret = ""
+
+    def add_arguments(self, parser):
+        parser.add_argument('timestamp', type=str)
+
+    def load_About(self):
+        for ak in self.astret.keys():
+            #print("ak: " + str(ak))
+            version = str(ak).split(':')[1]
+            qs = About.objects.filter(Version=version)
+            print(str(version) + ":  qs.count() = " + str(qs.count()))
+            if qs.count() != int(1):
+                na = About(Version=version, Requirements=self.astret[ak]["Requirements"], updated=self.astret[ak]["updated"])
+                na.save()
+                print("  created: " + str(na))
+
+    def load_Keys(self):
+        for kk in self.astret.keys():
+            print("kk: " + str(kk))
+            name = str(kk).split(':')[1]
+            qs = Key.objects.filter(name=name)
+            print(str(name) + ":  qs.count() = " + str(qs.count()))
+            if qs.count() != int(1):
+                nk = get_or_add_ecrypte_key(keyname=name, dk=self.astret[kk]["decrypt_key"])
+                nk.save()
+                print("  created: " + str(nk))
+
+    def load_Organizations(self):
+        for ok in self.astret.keys():
+            print("ok: " + str(ok))
+            name = str(ok).split(':')[1]
+            qs = Key.objects.filter(name=name)
+            print(str(name) + ":  qs.count() = " + str(qs.count()))
+            if qs.count() != int(1):
+                no = Organization(name=name, parent=self.astret[ok]["parent"])
+                no.save()
+                print("  created: " + str(no))
+
+    def load_Contacts(self):
+        for ck in self.astret.keys():
+            print("ck: " + str(ck))
+            # 'firstname lastname (email)', 'Jen Gardner (jen.gardner@noaa.gov)')
+            (firstname, lastname, email) = str(ck).split(':')[1].split(' ')
+            email = email.replace('(', '')
+            email = email.replace(')', '')
+            qs = Contact.objects.filter(email=email)
+            print(str(email) + ":  qs.count() = " + str(qs.count()))
+            if qs.count() != int(1):
+                nc = Contact(email=email, firstname=firstname, lastname=lastname)
+                nc.save()
+                print("  created: " + str(nc))
+
+    def load_Projects(self):
+        for pk in self.astret.keys():
+            print("pk " + str(pk))
+            name = str(pk).split(':')[1]
+            qs = Project.objects.filter(name=name)
+            print(str(name) + ":  qs.count() = " + str(qs.count()))
+            if qs.count() != int(1):
+                org = get_or_add_organization_by_name(self.astret[pk]['organization'])
+                keyname = self.astret[pk]["decrypt_key"]
+                decrypt_key = get_or_add_decrpyt_key(keyname=keyname, dk=None)
+                verbose_name = self.astret[pk]["verbose_name"]
+                return_to = self.astret[pk]["return_to"]
+                queryparam = self.astret[pk]["queryparam"]
+                querydelimiter = self.astret[pk]["querydelimiter"]
+                error_redirect = self.astret[pk]["error_redirect"]
+                state = self.astret[pk]["state"]
+                enabled = self.astret[pk]["enabled"]
+                expiretokens = self.astret[pk]["expiretokens"]
+                display_order = self.astret[pk]["display_order"]
+                logoimg = self.astret[pk]["logoimg"]
+                app_params = self.astret[pk]["app_params"]
+                userlist = self.astret[pk]["userlist"]
+                np = Project(name=name, organization=org, verbose_name=verbose_name, return_to=return_to, \
+                             queryparam=queryparam, querydelimiter=querydelimiter, error_redirect=error_redirect, \
+                             state=state, enabled=enabled, expiretokens=expiretokens, display_order=display_order, \
+                             logoimg = logoimg, app_params=app_params)
+                np.save()
+                print("  created: " + str(np))
+
+                for email in userlist:
+                    ac = get_or_add_contact(email)
+                    np.userlist.add(ac)
+
+                # fields added since last release
+                try:
+                     pfishing_resistant= self.astret[pk]["pfishing_resistant"]
+                     idp = self.astret[pk]["idp "]
+                     groups = self.astret[pk]["groups"]
+                     np.pfishing_resistant = pfishing_resistant
+                     np.ipd = idp
+                     for g in groups:
+                         ng = get_or_add_group(name=g)
+                         np.groups.add(ng)
+                     np.save()
+                except KeyError:
+                     pass
+
+    def handle(self, *args, **options):
+
+        timestamp = options['timestamp']
+
+        #objtypes = ["About", "Contact", "Key", "Organization", "Room", "Project"]
+        objtypes = ["Project"]
+        filelist = []
+        for fn in os.listdir(settings.DBDUMP_ROOT):
+            if timestamp in fn:
+                filelist.append(fn)
+
+        fnbytype = {} 
+        for fn in filelist:
+            for ot in objtypes:
+                if str(ot) in str(fn):
+                   fnbytype[ot] = str(fn)
+                   continue 
+
+        for k in fnbytype.keys():
+            print(str(k) + ": " + str(fnbytype[k]))
+
+        for k in objtypes:
+            print(str(k) + ": " + str(fnbytype[k]))
+            fh = open(fnbytype[k], "r")
+            self.astret = json.load(fh)
+            fh.close()
+            print("astret: " + str(self.astret))
+
+            if "About" in str(k):
+                self.load_About()
+
+            if "Key" in str(k):
+                self.load_Keys()
+
+            if "Contact" in str(k):
+                self.load_Contacts()
+
+            if "Project" in str(k):
+                self.load_Projects()
+
+
+
+#        pret = {}
+#        data["projects"] = pret
+#        for p in allproj:
+#            pkey = ("name", str(p).strip())
+#            pret[pkey] = {}
+#            for (k,v) in p.get_fields():
+#                pret[pkey][str(k).strip()] = str(v).strip()
+#        #print("        " + str(len(pret)) + " projects")
+#
+#        cret = {}
+#        data["contacts"] = cret
+#        for c in allcontact:
+#            ckey = ("firstname lastname (email)", str(c).strip())
+#            cret[ckey] = {}
+#            for (k,v) in c.get_fields():
+#                cret[ckey][str(k).strip()] = str(v).strip()
+#        #print("        " + str(len(cret)) + " contacts")

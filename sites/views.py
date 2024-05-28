@@ -16,15 +16,17 @@ import matplotlib.pyplot as plt
 import noaaOneLoginSAML as noaasaml
 
 from ssop import settings
+from django.core.handlers.wsgi import WSGIRequest
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse, HttpResponseRedirect, response
 from django.shortcuts import redirect, render
 from django.contrib.auth.models import User
 from cryptography.fernet import Fernet
 from bs4 import BeautifulSoup
+from http import cookies
 
 from sites.forms import ProjectForm
-from sites.models import Attributes, AttributeGroup, AuthToken, Contact, GraphNode, NodeType, Connection, Project, Uniqueuser, hash_to_fingerprint, clean_authtokens, runcmdl, Room
+from sites.models import Attributes, AttributeGroup, AuthToken, Contact, GraphNode, NodeType, Connection, Project, Uniqueuser, hash_to_fingerprint, clean_authtokens, runcmdl, Room, add_sso_obj, get_sso_uid
 
 logger = logging.getLogger('ssop.models')
 
@@ -64,6 +66,178 @@ def x509oneline(x509):
             oneline = oneline + line
     return oneline
 
+def bogus_target(request):
+    msg = "     bogus_target request: " + str(request)
+    logger.info(msg)
+    msg = "     bogus_target "
+    try:
+        pp = pprint.PrettyPrinter()
+        ppdata = pp.pformat(request.headers)
+        msg = msg + "request.headers: " + ppdata 
+    except KeyError:
+        msg = msg + ".. no request headers"
+    logger.info(msg)
+
+    try:
+        authmsg = request.session["Authorization"]
+    except KeyError:
+        authmsg = "   NO request.session found"
+    logger.info(authmsg)
+
+    now = datetime.datetime.now()
+    now = now.replace(tzinfo=pytz.UTC)
+    html = "<html><body>"
+    html = html + "It is now %s <hr>" % now
+    numkeys = len(request.headers.keys())
+    # Request.Headers used instead of request.headers, because the latter is an object
+    html = html + "found %s Request.Headers<br>" % str(numkeys)
+    rhkeys = []
+    for k in request.headers.keys():
+        rhkeys.append(k)
+    if len(rhkeys) > int(1):
+        rhkeys.sort()
+    for k in rhkeys:
+        html = html + "&nbsp;&nbsp;" + str(k) + ": " + str(request.headers[k]) + "<br>"
+
+    # Request.Session used instead of request.session, because the latter is an object)
+    html = html + "found in Request.Session:"
+    html = html + "&nbsp;&nbsp;Authorization: " + str(authmsg) + "<br>"
+    html = html + "</body></html>"
+    return HttpResponse(html)
+
+def icam_authenticated(request, project_name=None):
+    msg = "     icam_authenticated request: " + str(request)
+    logger.info(msg)
+    msg = "     icam_authenticated project_name: " + str(project_name)
+    logger.info(msg)
+
+    try:
+        noaasso = request.COOKIES.get('noaasso', 'nonoaasso')
+    except WSGIRequest: 
+        noaasso = None
+    msg = "     icam_authenticated noaasso: " + str(noaasso)
+    logger.info(msg)
+
+    ssouid = get_sso_uid(noaasso)
+    msg = "    ssouid = " + str(ssouid)
+    logger.info(msg)
+
+    #msg = "     in icam_authenticated "
+    try:
+        pp = pprint.PrettyPrinter()
+        ppdata = pp.pformat(request.headers)
+        #msg = msg + "request.headers: " + ppdata 
+    except KeyError:
+        #msg = msg + ".. no request.headers found"
+        pass
+    #logger.info(msg)
+
+    fernet = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
+
+    uu = {"email": ssouid} 
+    data = str(uu).encode()
+    fingerprint = md5(data).hexdigest()
+    encrypted_attrs = fernet.encrypt(data)
+    thisattr = attributesFromDecodedFp(fingerprint,  encrypted_attrs)
+    uuattrslist = [thisattr]
+
+    project = None 
+    authtoken = None
+    icam_auth_return_to  = settings.SSO_ERROR_REDIRECT
+    attributes = []
+    connattrsgroup = None
+    qs = Project.objects.filter(name=project_name)
+    if qs.count() == int(1):
+        project = qs[0]
+        if project.icam_authorized(ssouid):
+            icam_auth_return_to = project.get_returnto()
+            connection_state = project.get_connection_state()
+            initialize_nodetypes()
+            conngrouptype = NodeType.objects.filter(type='Conngroup').first()
+            namegrouptype = NodeType.objects.filter(type='Namegroup').first()
+            connattrslist = get_connattrslist(request)
+            (attributes, connattrslist, return_to_not_used, error_redirect_not_used)= add_app_params_to_attributes(project_name, attributes, connattrslist)
+            authtoken = get_authtoken('icamauth')
+            request.session["Authorization"] = "Bearer " + str(authtoken)
+            msg = "     in icam_authenticated --  authtoken: " + str(authtoken)
+            logger.info(msg)
+            if project.append_access_token(): 
+                icam_auth_return_to = icam_auth_return_to + str(project.querydelimiter) + str(authtoken)
+            msg = "     in icam_authenticated --  icam_auth_return_to: " + icam_auth_return_to
+            logger.info(msg)
+
+            connattrsgroup = attributeGroupFromAttributes(conngrouptype, connattrslist)
+            nameattrsgroup = attributeGroupFromAttributes(namegrouptype, uuattrslist)
+            uufp = hash_to_fingerprint(uu)
+            uniqueuser = uuFromFp(uufp, nameattrsgroup, connattrsgroup)
+            msg = "     in icam_authenticated --  uniqueuser: " + str(uniqueuser)
+            logger.info(msg)
+            connection = Connection(project=project, attrsgroup=connattrsgroup, token=authtoken, connection_state=connection_state, uniqueuser=uniqueuser)
+            connection.save()
+            msg = "     in icam_authenticated --  connection: " + str(connection)
+            logger.info(msg)
+
+    expires =  datetime.datetime.strftime(
+        datetime.datetime.utcnow() + datetime.timedelta(seconds=30),
+        "%a, %d-%b-%Y %H:%M:%S GMT",
+    )
+
+    response = HttpResponse(status=301)
+    response['Location'] = icam_auth_return_to
+    response.set_cookie('ssopauthtoken', str(authtoken), expires=expires, domain=settings.DOMAIN)
+    response.set_cookie('ssopuid', str(ssouid), expires=expires, domain=settings.DOMAIN)
+    return response
+
+def icam(request, project_name = None):
+
+    msg = "   icam request: " + str(request)
+    msg = "   icam project_name: " + str(project_name)
+    logger.info(msg)
+
+    req = prepare_django_request(request)
+    #msg = "req get_data: " + str(req['get_data'])
+    #logger.info(msg)
+
+    if project_name is None:
+        project_name = settings.DEFAULT_PROJECT_NAME
+        if settings.VERBOSE:
+            msg = "   icam project_name is now: " + str(project_name)
+            logger.info(msg)
+
+    if project_name:
+        qs = Project.objects.filter(name=project_name)
+        if qs.count() == int(1):
+            auth = noaaOneLogin_Saml2_Auth(req, custom_base_path=settings.SAML_FOLDER)
+            msg = '  SAML auth: ' + str(auth)
+            logger.info(msg)
+            login = auth.login()
+            msg = '  SAML login: ' + str(login)
+            logger.info(msg)
+            shortened = login[0:100] + '... ' + ' chars removed ...' + login[-15:]
+            lenshortened = len(shortened)
+            shortened = login[0:100] + '... ' + str(lenshortened) + ' chars removed ...' + login[-15:]
+            msg = '   sso login HttpResponseRedirect( ' + str(shortened) + ' )'
+            logger.info(msg)
+            return HttpResponseRedirect(login)
+        else:
+            error_msg = "Sorry, project " + str(project_name) + " was not found."
+            logger.info(error_msg)
+            attributes = []
+            lmr = Lmr()
+            for p in Project.objects.all():
+                logo = settings.PROJECTS_PREFIX + str(p) + settings.PROJECTS_POSTFIX 
+                #link = settings.LDG_BASE + 'ldg/' + str(p) + settings.LDG_POSTFIX
+                for (idptype, label) in p.get_idp_type():
+                    link = settings.LDG_BASE + idptype + str(p) + settings.LDG_POSTFIX
+                    linktext = p.get_verbose_name() + ' via ' + str(label)
+                    alt = 'Logo for project ' + str(p)
+                    attributes.append((str(p), link, linktext, logo, alt, lmr.next()))
+            return render(request, 'sites_grid.html', {'attributes': attributes, 'error_msg': error_msg})
+    else:
+        msg = "SSO_ERROR_REDIRECT"
+        logger.info(msg)
+        HttpResponseRedirect(settings.SSO_ERROR_REDIRECT)
+
 
 def ldg(request, project_name = None):
 
@@ -80,27 +254,38 @@ def ldg(request, project_name = None):
             logger.info(msg)
 
     project_state = settings.LOGINDOTGOV_LOGIN_STATE
+    pfishing_resistant = False
     if project_name:
         qs = Project.objects.filter(name=project_name)
         if qs.count() == int(1):
             qs = qs[0]
             project_state = qs.get_connection_state()
+            pfishing_resistant = qs.not_pfishable()
         else:
             error_msg = "Sorry, project " + str(project_name) + " was not found."
             attributes = []
             lmr = Lmr()
             for p in Project.objects.all():
                 logo = settings.PROJECTS_PREFIX + str(p) + settings.PROJECTS_POSTFIX 
-                link = settings.LDG_BASE + 'ldg/' + str(p) + settings.LDG_POSTFIX
-                linktext = p.get_verbose_name()
-                alt = 'Logo for project ' + str(p)
-                attributes.append((str(p), link, linktext, logo, alt, lmr.next()))
+                #link = settings.LDG_BASE + 'ldg/' + str(p) + settings.LDG_POSTFIX
+                #idptype = p.get_idp_type()
+                for (idptype, label) in p.get_idp_type():
+                    link = settings.LDG_BASE + idptype + str(p) + settings.LDG_POSTFIX
+                    #linktext = p.get_verbose_name()
+                    linktext = p.get_verbose_name() + ' via ' + str(label)
+                    alt = 'Logo for project ' + str(p)
+                    attributes.append((str(p), link, linktext, logo, alt, lmr.next()))
             return render(request, 'sites_grid.html', {'attributes': attributes, 'error_msg': error_msg})
 
     if 'ldg' in str(request):
         #login = 'https://idp.int.identitysandbox.gov/openid_connect/authorize?'
         login = settings.LOGINDOTGOV_IDP_SERVER + '/openid_connect/authorize?'
-        login = login + "acr_values=" + settings.LOGINDOTGOV_ACR
+        if pfishing_resistant:
+            login = login + "acr_values=" + settings.LOGINDOTGOV_ACR_PFISHING_RESISTANT
+            msg = "       " + str(project_name) + " has pfishing resistant enabled"
+            logger.info(msg)
+        else:
+            login = login + "acr_values=" + settings.LOGINDOTGOV_ACR
         login = login + "&client_id=" + settings.LOGINDOTGOV_CLIENT_ID + "&"
         login = login + "nonce=" + str(secrets.token_urlsafe(30)) + "&"
         login = login + "prompt=select_account&"
@@ -197,21 +382,11 @@ def get_authtoken(access_token):
        token = qs[0]
     return token 
 
-def ldg_authenticated(request):
-    msg = "     ldg_authenticated request: " + str(request)
-    logger.info(msg)
+def get_connattrslist(request):
+    #msg = "     get_connattrslist request: " + str(request)
+    #logger.info(msg)
 
-    attributes = []
-    #requestattrs = None
-    #userattrs = None
-    connattrsgroup = None
     connattrslist = []
-    uuattrslist = []
-    initialize_nodetypes()
-
-    conngrouptype = NodeType.objects.filter(type='Conngroup').first()
-    namegrouptype = NodeType.objects.filter(type='Namegroup').first()
-
     fernet = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
     try:
         realip = str('xrip:' + request.headers['X-Real-Ip']).encode()
@@ -258,6 +433,61 @@ def ldg_authenticated(request):
     except KeyError:
         pass
 
+    return connattrslist
+
+def add_app_params_to_attributes(project_name, attributes, connattrslist):
+    msg = "     in add_app_params_to_attributes -- attributes: " + str(attributes)
+    logger.info(msg)
+    fernet = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
+    qs = Project.objects.filter(name=project_name)
+    ERROR_REDIRECT = None
+    RETURN_TO = None
+    if qs.count() == int(1):
+        project = qs[0]
+        return_to = project.get_returnto()
+        error_redirect = project.get_err_redirect()
+        if not settings.DEFAULT_PROJECT_NAME in str(project):
+            ERROR_REDIRECT = error_redirect 
+            RETURN_TO = return_to
+        attributes.append(('name', project.name))
+        attributes.append(('return_to', return_to))
+        attributes.append(('error_redirect', error_redirect))
+        app_params = project.get_app_params()
+        aleap = ast.literal_eval(app_params)
+        for alk in aleap.keys():
+            atmp = {}
+            atmp[alk] = aleap[alk]
+            attributes.append(atmp)
+            temp = str(atmp).encode()
+            tempfp = md5(temp).hexdigest()
+            encrypted_temp = fernet.encrypt(temp)
+            tempattrs = attributesFromDecodedFp(tempfp, encrypted_temp)
+            connattrslist.append(tempattrs)
+    else:
+        msg = "   add_app_parames_to_attributes -- project_name " + str(project_name) + " not found"
+        logger.info(msg)
+    msg = "     in add_app_params_to_attributes -- attributes: " + str(attributes)
+    logger.info(msg)
+    msg = "     in add_app_params_to_attributes -- RETURN_TO: " + str(RETURN_TO)
+    logger.info(msg)
+    msg = "     in add_app_params_to_attributes -- ERROR_REDIRECT: " + str(ERROR_REDIRECT)
+    logger.info(msg)
+    return (attributes, connattrslist, RETURN_TO, ERROR_REDIRECT)
+
+def ldg_authenticated(request):
+    #msg = "     ldg_authenticated request: " + str(request)
+    #logger.info(msg)
+
+    attributes = []
+    connattrsgroup = None
+    uuattrslist = []
+    initialize_nodetypes()
+
+    conngrouptype = NodeType.objects.filter(type='Conngroup').first()
+    namegrouptype = NodeType.objects.filter(type='Namegroup').first()
+    connattrslist = get_connattrslist(request)
+
+    fernet = Fernet(settings.DATA_AT_REST_KEY_ATTRS)
     state = 'notautenticated'
     project_state = settings.LOGINDOTGOV_LOGIN_STATE
     # first 10 digits of start the are utc seconds
@@ -281,29 +511,13 @@ def ldg_authenticated(request):
     project = None 
     qs = Project.objects.filter(state=state[10:])
     if qs.count() == int(1):
-        qs = qs[0]
-        project = qs
+        project = qs[0]
         connection_state = project.get_connection_state()
-        attributes.append(('name', qs.name))
-        return_to = qs.get_returnto()
-        error_redirect = qs.get_err_redirect()
-        if not settings.DEFAULT_PROJECT_NAME in str(project):
-            ERROR_REDIRECT = error_redirect 
-            RETURN_TO = return_to
-        attributes.append(('return_to', return_to))
-        attributes.append(('error_redirect', error_redirect))
         attributes.append(('state', state))
-        app_params = qs.get_app_params()
-        aleap = ast.literal_eval(app_params)
-        for alk in aleap.keys():
-            atmp = {}
-            atmp[alk] = aleap[alk]
-            attributes.append(atmp)
-            temp = str(atmp).encode()
-            tempfp = md5(temp).hexdigest()
-            encrypted_temp = fernet.encrypt(temp)
-            tempattrs = attributesFromDecodedFp(tempfp, encrypted_temp)
-            connattrslist.append(tempattrs)
+        (attributes, connattrslist, RETURN_TO, ERROR_REDIRECT) = add_app_params_to_attributes(project, attributes, connattrslist)
+    else:
+        msg = "    Project qs.count() != 1"
+        logger.info(msg)
 
     if settings.VERBOSE:
         msg = "    state: " + str(state)
@@ -477,6 +691,7 @@ def ldg_authenticated(request):
 
         if RETURN_TO:
             request.session["Authorization"] = "Bearer " + str(authtoken)
+            return_to = RETURN_TO
             if project.append_access_token(): 
                 return_to = RETURN_TO + str(project.querydelimiter) + str(authtoken)
             if settings.VERBOSE:
@@ -541,7 +756,7 @@ def logout(request, connection_state = None):
 def oops(request):
     now = datetime.datetime.now()
     now = now.replace(tzinfo=pytz.UTC)
-    html = "<html><body>Oops... It is now %s.</body></html>" % now
+    html = "<html><body>Oops... It is now %s</body></html>" % now
     return HttpResponse(html)
     
 def indextable(request):
@@ -553,9 +768,13 @@ def indextable(request):
     for p in Project.objects.all().order_by('display_order'):
         if p.is_enabled():
             logo = settings.PROJECTS_PREFIX + str(p) + settings.PROJECTS_POSTFIX 
-            link = settings.LDG_BASE + 'ldg/' + str(p) + settings.LDG_POSTFIX
-            linktext = p.get_verbose_name()
-            attributes.append((str(p), link, linktext, logo, lmr.next()))
+            #link = settings.LDG_BASE + 'ldg/' + str(p) + settings.LDG_POSTFIX
+            #idptype = p.get_idp_type()
+            for (idptype, label) in p.get_idp_type():
+                link = settings.LDG_BASE + idptype + str(p) + settings.LDG_POSTFIX
+                #linktext = p.get_verbose_name()
+                linktext = p.get_verbose_name() + ' via ' + str(label)
+                attributes.append((str(p), link, linktext, logo, lmr.next()))
     return render(request, 'sites.html', {'attributes': attributes})
 
 def index_grid(request):
@@ -567,17 +786,21 @@ def index_grid(request):
     for p in Project.objects.all().order_by('display_order'):
         if p.is_enabled():
             logo = settings.PROJECTS_PREFIX + str(p) + settings.PROJECTS_POSTFIX 
-            link = settings.LDG_BASE + 'ldg/' + str(p) + settings.LDG_POSTFIX
-            linktext = p.get_verbose_name()
-            alt = 'Logo for project ' + str(p)
-            attributes.append((str(p), link, linktext, logo, alt, lmr.next()))
+            #link = settings.LDG_BASE + 'ldg/' + str(p) + settings.LDG_POSTFIX
+            #idptype = p.get_idp_type()
+            for (idptype, label) in p.get_idp_type():
+                link = settings.LDG_BASE + idptype + str(p) + settings.LDG_POSTFIX
+                #linktext = p.get_verbose_name()
+                linktext = p.get_verbose_name() + ' via ' + str(label)
+                alt = 'Logo for project ' + str(p)
+                attributes.append((str(p), link, linktext, logo, alt, lmr.next()))
     return render(request, 'sites_grid.html', {'attributes': attributes, 'showplots': False})
 
 def project_userlist(request, projectname):
 
     now = datetime.datetime.now()
     now = now.replace(tzinfo=pytz.UTC)
-    #html = "<html><body>Oops... It is now %s.</body></html>" % now
+    #html = "<html><body>Oops... It is now %s</body></html>" % now
     html = '{"Oops": "It is now %s"}' % now
     for p in Project.objects.all():
         if str(p.state).startswith(projectname):
@@ -620,6 +843,7 @@ def get_cwd(request):
     cwd_page = soup.select_one('div#home_page_content')
     opt_normal = soup.find("div", {"class": "col-opt-normal"})
     opt_critical = soup.find("div", {"class": "col-opt-critical"})
+    opt_caution = soup.find("div", {"class": "col-opt-caution"})
 
     opt_cwd_header = soup.find("div", {"class": "opt-cwd-header"})
     opt_cwd_text = soup.find("div", {"class": "text-opt-cwd-header"})
@@ -660,6 +884,37 @@ def get_cwd(request):
         opt_end = opt_end.replace('<br/><br/></div>', '')
         textcolor = 'white'
         bgcolor = 'red'
+    elif 'none' not in str(opt_caution).lower():
+        opt_status = 'Caution'
+        opt_i = soup.find("div", {"class": "text-opt-i"})
+    
+        #<div class="col-opt-caution">Caution</div>
+        opt_caution = str(opt_caution).replace('<div class="col-opt-caution">', '' )
+        opt_caution = str(opt_caution).replace('</div>', '' )
+        #<div class="text-opt-cwd-header"><br/>Critical Weather Day is in Effect<br/><br/></div>
+        opt_cwd_header = str(opt_cwd_header).replace('<div class="opt-cwd-header"><br/>', '')
+    
+        #<div class='text-opt-cwd-header'><br>Enhanced Caution Event is in Effect<br><br></div><div class='text-opt-i'>REASON: <reason>
+        opt_reason = str(opt_i).replace('<div class="text-opt-i">REASON: <reason>', '')
+        opt_reason = opt_reason.replace('</reason><br/>', '')
+        opt_start = opt_reason.split('START')
+        opt_end = opt_reason.split('END')
+        opt_start = opt_start[1]
+        opt_reason = opt_reason.split('START')[0]
+    
+        #: 1200Z Wed Jun 14 2023<br/>END: 1200Z Fri Jun 16 2023<br/><br/></div>
+        opt_start = opt_start.replace(': ', '')
+        opt_start = opt_start.split('END')
+        opt_start = opt_start[0]
+        opt_start = opt_start.replace('<br/>', '')
+        
+        #: 1200Z Fri Jun 16 2023<br/><br/></div>
+        # opt_end = opt_reason.split('END')
+        opt_end = opt_end[1]
+        opt_end = opt_end.replace(': ', '')
+        opt_end = opt_end.replace('<br/><br/></div>', '')
+        textcolor = 'black'
+        bgcolor = '#f1c232'
     else:
         opt_i = 'None'
         opt_status = 'Normal'
@@ -674,7 +929,7 @@ def get_cwd(request):
         normal = []
         normal.append((opt_status, textcolor, bgcolor, opt_cwd_text, str(now), opt_cwd_header, opt_cwd_outlook))
 
-    rethtml = "<html><body>It is now %s.<hr>" % now
+    rethtml = "<html><body>It is now %s<hr>" % now
     rethtml = str(rethtml) + str(opt_critical) + "<hr>" + str(opt_cwd_header) + "<hr>" + str(opt_i) + "<hr>" + opt_cwd_text + "<hr>" + opt_reason + "<hr>" + opt_start + "<hr>" + opt_end
     rethtml = rethtml + str(opt_cwd_outlook) + str(cwd_page) + "</body></html>"
     #return HttpResponse(rethtml)
@@ -725,7 +980,7 @@ def project_ldg(request, projectname):
             qs = qs[0]
             attributes.append(('name', qs.name))
             attributes.append(('return_to', qs.get_returnto()))
-            attributes.append(('authenticated_redirect', qs.get_auth_redirect()))
+            #attributes.append(('authenticated_redirect', qs.get_auth_redirect()))
             attributes.append(('error_redirect', qs.get_err_redirect()))
             attributes.append(('state', qs.get_state()))
             login = settings.LDG_BASE + 'ldg/' + str(qs.name) + "/"
@@ -2192,10 +2447,12 @@ class noaaOneLogin_Saml2_Response(OneLogin_Saml2_Response):
         """
         Validates the response object.
         
-        NOTE: This version ACCEPTS an assertion signed with sha-128 -- per ICAM team this is needed to support some legacy NOAA systems
-        On Mon, Aug 8, 2022 at 9:30 AM NOAA ICAM Team <icam.id.team@noaa.gov> wrote: (to kirk.l.holub)
-             Unfortunately, that may be a blocker.
-             We send back SHA1 in our signature, since we are supporting applications which can only accept SHA1.
+        #NOTE: This version ACCEPTS an assertion signed with sha-128 -- per ICAM team this is needed to support some legacy NOAA systems
+        #On Mon, Aug 8, 2022 at 9:30 AM NOAA ICAM Team <icam.id.team@noaa.gov> wrote: (to kirk.l.holub)
+        #     Unfortunately, that may be a blocker.
+        #     We send back SHA1 in our signature, since we are supporting applications which can only accept SHA1.
+        # Per a note from ICAM team on 16 Apr 2024, this issue has been fixed.  Testing confirms assertions are now being signed with sha-256
+        # So this class could be replaced with the original class OneLogin_Saml2_Response
 
         :param request_data: Request Data
         :type request_data: dict
@@ -2466,14 +2723,14 @@ class noaaOneLogin_Saml2_Response(OneLogin_Saml2_Response):
                 if has_signed_assertion and not OneLogin_Saml2_Utils.validate_sign(document_check_assertion, cert, fingerprint, fingerprintalg, xpath=OneLogin_Saml2_Utils.ASSERTION_SIGNATURE_XPATH, multicerts=multicerts, raise_exceptions=False):
                     # some NOAA systems cannot handle 256 bit encryption!  --- per conversation with icam team
                     # HOWEVER, 256 must be used to intiate the response....
-                    msg = "    has_signed_assertion is " + str(has_signed_assertion) + ", NOT raising error OneLogin_Saml2_ValidationError -- xml document:" + str(self.get_xml_document())
-                    msg = msg + "    accepting assertion signed with sha-128 -- per ICAM team this is needed to support some legacy NOAA systems"
+                    #msg = "    has_signed_assertion is " + str(has_signed_assertion) + ", NOT raising error OneLogin_Saml2_ValidationError -- xml document:" + str(self.get_xml_document())
+                    #msg = msg + "    accepting assertion signed with sha-128 -- per ICAM team this is needed to support some legacy NOAA systems"
 
                                          
-                    #raise OneLogin_Saml2_ValidationError(
-                    #    'Signature validation failed. SAML Response rejected',
-                    #    OneLogin_Saml2_ValidationError.INVALID_SIGNATURE
-                    #)
+                    raise OneLogin_Saml2_ValidationError(
+                        'Signature validation failed. SAML Response rejected',
+                        OneLogin_Saml2_ValidationError.INVALID_SIGNATURE
+                    )
 
             return True
         except Exception as err:
@@ -2511,21 +2768,22 @@ def prepare_django_request(request):
 
 #@ensure_csrf_cookie
 def index(request):
-    #msg = 'in index -- request = ' + str(request)
-    #logger.info(msg)
+    msg = 'in index -- request = ' + str(request)
+    logger.info(msg)
 
     req = prepare_django_request(request)
+    msg = "req get_data: " + str(req['get_data'])
+    logger.info(msg)
 
-    #try:
-    #    thissession = request.session
-    #    msg = "   this request.session: " + str(thissession)
-    #    logger.info(msg)
-    #except KeyError:
-    #    msg = "   KeyError for thissession: " + str(session)
+    try:
+        thissession = request.session
+        msg = "   this request.session: " + str(thissession)
+    except KeyError:
+        msg = "   KeyError for thissession: " + str(session)
     #logger.info(msg)
 
     auth = noaaOneLogin_Saml2_Auth(req, custom_base_path=settings.SAML_FOLDER)
-    #msg = '   auth: ' + str(auth)
+    #msg = '   in index --- auth: ' + str(auth)
     #logger.info(msg)
 
     errors = []
@@ -2538,11 +2796,13 @@ def index(request):
         #msg = '  SAML auth: ' + str(auth)
         #logger.info(msg)
         login = auth.login()
+        msg = '  SAML login: ' + str(login)
+        logger.info(msg)
         shortened = login[0:100] + '... ' + ' chars removed ...' + login[-15:]
         lenshortened = len(shortened)
         shortened = login[0:100] + '... ' + str(lenshortened) + ' chars removed ...' + login[-15:]
-        #msg = '  sso login HttpResponseRedirect( ' + str(shortened) + ' )'
-        #logger.info(msg)
+        msg = '  sso login HttpResponseRedirect( ' + str(shortened) + ' )'
+        logger.info(msg)
         return HttpResponseRedirect(login)
 
     elif 'sso2' in req['get_data']:
@@ -2584,10 +2844,67 @@ def index(request):
 
         #return HttpResponseRedirect(slo_built_url)
     elif 'acs' in req['get_data']:
-        #msg = '      acs req = ' + str(req)
-        #logger.info(msg)
+        msg = '      in index acs req = ' + str(req)
+        logger.info(msg)
+        msg = '      in index acs request.headers = ' + str(request.headers)
+        logger.info(msg)
         request_id = None
-           
+
+        #if 'AuthNRequestID' in request.session:
+        #    request_id = request.session['AuthNRequestID']
+        #    msg = '    in acs request_id = ' + str(request_id)
+        #    logger.info(msg)
+        #auth.process_response(request_id=request_id)
+        errors = auth.get_errors()
+        msg = '      in index acs request.headers = ' + str(request.headers)
+        logger.info(msg)
+        samlattributes = None 
+        if not errors:
+            if 'AuthNRequestID' in request.session:
+                del request.session['AuthNRequestID']
+            request.session['samlUserdata'] = auth.get_attributes()
+            try:
+                samlattributes = {}
+                for (k,v) in request.session['samlUserdata'].items():
+                    samlattributes[k] = v
+            except KeyError:
+                pass
+        else:
+            msg = '      in index acs errors = ' + str(errors)
+            logger.info(msg)
+
+        msg = "      samlattributes: " + str(samlattributes)
+        logger.info(msg)
+
+        acs_return_to = None 
+        if 'RelayState' in req['post_data']:
+            relay_state = req['post_data']['RelayState']
+            #msg = '    in acs relay_state = ' + str(relay_state)
+            #logger.info(msg)
+            rss = str(relay_state)
+            #msg = '    in acs rss = ' + rss 
+            #logger.info(msg)
+            if "icam" in rss or rss.endswith('/sites/'):
+               rsl = rss.split('/')
+               #msg = "rsl: " + str(rsl)
+               #logger.info(msg)
+               #msg = "len(rsl): " + str(len(rsl))
+               #logger.info(msg)
+               project_name = str(rsl[len(rsl) - 2])
+               #msg = "project_name: " + project_name
+               #logger.info(msg)
+               qs = Project.objects.filter(name=project_name)
+               if qs.count() == int(1):
+                   acs_return_to = settings.ICAM_AUTH_RETURN_TO + '/' + project_name + '/'
+                   #acs_return_to = qs[0].get_returnto()
+               else:
+                   acs_return_to = relay_state
+               msg = "     in acs -- acs_return_to: " + acs_return_to
+               logger.info(msg)
+        else:
+            msg = '    NO acs relay_state!'
+            logger.info(msg)
+
         if 'AuthNRequestID' in request.session:
             request_id = request.session['AuthNRequestID']
             #msg = '    in acs request_id = ' + str(request_id)
@@ -2637,16 +2954,75 @@ def index(request):
             shortened = str(req)[0:100] + '... ' + str(lenshortened) + ' chars removed ...' + str(req)[-15:]
             #msg = "     OneLogin_Saml2_Utils.get_self_url(req) = " + str(OneLogin_Saml2_Utils.get_self_url(req))
             #logger.info(msg)
+            samlattributes = None 
+            icam_authentication = False 
+            try:
+                samlattributes = {}
+                for (k,v) in request.session['samlUserdata'].items():
+                    samlattributes[k] = v
+                icam_authentication = True 
+            except KeyError:
+                pass
+
+            msg = "      len samlattributes: " + str(len(samlattributes))
+            logger.info(msg)
+            msg = "      len samlattributes string : " + str(len(str(samlattributes)))
+            logger.info(msg)
+            msg = "      samlattributes: " + str(samlattributes)
+            logger.info(msg)
+            msg = "     icam_authentication: " + str(icam_authentication)
+            logger.info(msg)
+
             if 'RelayState' in req['post_data'] and OneLogin_Saml2_Utils.get_self_url(req) != req['post_data']['RelayState']:
                 # To avoid 'Open Redirect' attacks, before execute the redirection confirm
                 # the value of the req['post_data']['RelayState'] is a trusted URL.
-                #msg = '  acs return to: ' + str(auth.redirect_to(req['post_data']['RelayState']))
-                #logger.info(msg)
-                return HttpResponseRedirect(auth.redirect_to(req['post_data']['RelayState']))
+                if icam_authentication:
+                    try:
+                        request_cookie = request.headers['Cookie']
+                    except KeyError:
+                        request_cookie = 'KeyError'
+                    try:
+                        noaasso = request.COOKIES.get('noaasso', 'nonoaasso')
+                    except WSGIRequest: 
+                        noaasso = None
+                    try:
+                        uid = str(samlattributes['uid'][0])
+                    except KeyError:
+                        uid = 'nouid'
+                    sso_email = add_sso_obj(ssostr=noaasso, email=uid, icamattrs=samlattributes)
+                    msg = "     in acs -- sso_email: " + str(sso_email)
+                    logger.info(msg)
+
+                    #msg = "     in acs -- after icam_authentication request_cookie: " + str(request_cookie)
+                    #logger.info(msg)
+                    #response = redirect(acs_return_to)
+                    #response.set_cookie('uid', str(samlattributes['uid'][0]))
+                    #msg = "     in acs -- after icam_authentication response: " + str(response)
+                    #logger.info(msg)
+                    #msg = "     in acs -- after icam_authentication response.headers: " + str(response.headers)
+                    #logger.info(msg)
+                    #msg = "     in acs -- after icam_authentication response.cookies: " + str(response.cookies)
+                    #logger.info(msg)
+                    #msg = "     in acs -- after icam_authentication acs_return_to: " + str(acs_return_to) + "\n\n"
+                    #logger.info(msg)
+
+                    #return response
+                    #responseheaders = {"uid": str(samlattributes['uid'][0])}
+                    #return HttpResponseRedirect(acs_return_to, headers=responseheaders)
+                    return HttpResponseRedirect(acs_return_to)
+                else:
+                    #msg = '  acs acs_return_to -- return to: ' + str(auth.redirect_to(req['post_data']['RelayState']))
+                    #logger.info(msg)
+                    acs_return_to = str(auth.redirect_to(req['post_data']['RelayState']))
+                    #msg = '  acs return to: ' + str(auth.redirect_to(req['post_data']['RelayState']))
+                    #msg = "  acs return to: " + str(acs_return_to)
+                    #logger.info(msg)
+                    return HttpResponseRedirect(auth.redirect_to(req['post_data']['RelayState']))
             elif auth.get_settings().is_debug_active():
                 error_reason = auth.get_last_error_reason()
                 msg = "   error_reason: " + str(error_reason)
                 logger.info(msg)
+
     elif 'sls' in req['get_data']:
         request_id = None
         if 'LogoutRequestID' in request.session:
@@ -2735,14 +3111,14 @@ def index(request):
             #logger.info(msg)
         request.session['saml_auth_user'] = email
 
-        return_to = settings.AUTH_RETURN_TO
+        return_to = settings.SSOPADMIN_AUTH_RETURN_TO
         #msg = "       attributes found -- HttpResponseRedirect( " + str(return_to) + ' )'
         #logger.info(msg)
 
         return HttpResponseRedirect(return_to)
     else:
-        #msg = "     -- no attributes found render index.html"
-        #logger.info(msg)
+        msg = "     -- no attributes found render index.html"
+        logger.info(msg)
         #return render(request, 'index.html', {'errors': errors, 'error_reason': error_reason, not_auth_warn: not_auth_warn, 'success_slo': success_slo,
         #                                    'attributes': attributes, 'paint_logout': paint_logout})
         attributes = []
@@ -2750,10 +3126,14 @@ def index(request):
         for p in Project.objects.all().order_by('display_order'):
             if p.is_enabled():
                 logo = settings.PROJECTS_PREFIX + str(p) + settings.PROJECTS_POSTFIX 
-                link = settings.LDG_BASE + 'ldg/' + str(p) + settings.LDG_POSTFIX
-                linktext = p.get_verbose_name()
-                alt = 'Logo for project ' + str(p)
-                attributes.append((str(p), link, linktext, logo, alt, lmr.next()))
+                #link = settings.LDG_BASE + 'ldg/' + str(p) + settings.LDG_POSTFIX
+                #idptype = p.get_idp_type()
+                for (idptype, label) in p.get_idp_type():
+                    link = settings.LDG_BASE + idptype + str(p) + settings.LDG_POSTFIX
+                    #linktext = p.get_verbose_name()
+                    linktext = p.get_verbose_name() + ' via ' + str(label)
+                    alt = 'Logo for project ' + str(p)
+                    attributes.append((str(p), link, linktext, logo, alt, lmr.next()))
         return render(request, 'sites_grid.html', {'attributes': attributes, 'showplots': False})
 
 #@ensure_csrf_cookie

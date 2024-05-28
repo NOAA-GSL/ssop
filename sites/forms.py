@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth.models import Group
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from sites.models import Contact, Organization, Project, Sysadmin
 import ssop.settings as settings
@@ -16,8 +17,9 @@ class ContactAdminForm(forms.ModelForm):
 class ProjectForm(forms.Form):
     class Meta:
         model = Project
-        fields = ('name', 'return_to', 'authenticated_redirect', 'error_redirect', 'state')
+        fields = ('name', 'return_to', 'authenticated_redirect', 'error_redirect', 'state', 'idp')
         message = forms.CharField(widget=forms.Textarea)
+        widgets = { 'idp': forms.RadioSelect() }
 
     def save(self, commit=True):
         project = super(ProjectForm, self).save(commit=False)
@@ -35,7 +37,7 @@ class ProjectAdminForm(forms.ModelForm):
     class Meta:
         model = Project
         #fields = '__all__'
-        field_order = ('name', 'organization', 'verbose_name', 'return_to', 'error_redirect', 'enabled', 'display_order', 'decrypt_key', 'logoimg', 'owner', 'userlist', 'app_params', 'expiretokens', 'graphnode', 'state', 'queryparam', 'querydelimiter', )
+        field_order = ('name', 'organization', 'verbose_name', 'return_to', 'error_redirect', 'idp', 'enabled', 'pfishing_resistant', 'display_order', 'decrypt_key', 'logoimg', 'owner', 'userlist', 'groups', 'app_params', 'expiretokens', 'graphnode', 'state', 'queryparam', 'querydelimiter', )
         fields = field_order
 
 
@@ -50,6 +52,7 @@ class ProjectAdminForm(forms.ModelForm):
     
         if project.pk:
             project.userlist.set(self.cleaned_data['userlist'])
+            project.groups.set(self.cleaned_data['groups'])
             self.save_m2m() 
 
         return project 

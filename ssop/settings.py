@@ -35,6 +35,8 @@ DEFAULT_AUTO_FIELD='django.db.models.AutoField'
 
 
 
+
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SSOPSB_VERSION = 'v1.1.2 -- ' + datetime.datetime.utcnow().strftime('%Y.%m.%d') 
@@ -66,19 +68,16 @@ def get_secret(key):
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = get_secret('SECRET_KEY')
 
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+#DEBUG = False 
 DEBUG_SAML_DEBUG = False 
-VERBOSE = False 
+VERBOSE = False
 DEBUG_VERBOSE = False 
 
-
-
-
-
-
-
 # Organization structure 
+DOMAIN = "noaa.gov"
 ALL_ORGS_BY_ID = {
     "1": {"name": "NOAA", "parent": "#none", "contact": "Kirk Holub", "email": "kirk.l.holub@noaa.gov"},
     "2": {"name": "OAR", "parent": "NOAA", "contact": "Kirk Holub", "email": "kirk.l.holub@noaa.gov"},
@@ -88,10 +87,15 @@ ALL_ORGS_BY_ID = {
     "6": {"name": "GSL-WIDS-WIZARD", "parent": "GSL-WIDS", "contact": "Jebb Stewart", "email": "jebb.q.stewart@@noaa.gov"},
     }
 
+
+
 # SSO
-CSRF_TRUSTED_ORIGINS = ['https://sso-dev.noaa.gov', 'https://sso.noaa.gov']
-SAML_FOLDER = os.path.join(BASE_DIR, 'sites/saml')
-AUTH_RETURN_TO = "/ssopsb/adminssopsb/sites/"
+#CSRF_TRUSTED_ORIGINS = ['https://sso-dev.noaa.gov', 'https://sso.noaa.gov']
+#SAML_FOLDER = os.path.join(BASE_DIR, 'sites/saml')
+#SSO_ERROR_REDIRECT = 'https://gsl.noaa.gov/ssopsb/oops'
+#SSO_ERROR_REDIRECT = EXTERNAL_URL + 'oops'
+#SSOPADMIN_AUTH_RETURN_TO = "/ssopsb/adminssopsb/sites/"
+#ICAM_AUTH_RETURN_TO = EXTERNAL_URL + "icam_authenticated"
 
 # NOTE: --- The group names ARE repeated in AUTH_SAML_USER_FLAGS_BY_GROUP -- so if you change one here, be sure to change it in FLAGS_BY_GROUP also
 # LDAP_GROUPS and USER_FLAGS_BY_GROUP much match groupnames in add_groups_and_permissions.py
@@ -156,7 +160,11 @@ EMAIL_PORT = 25
 EMAIL_HOST_USER = 'noreply.gsl@noaa.gov'
 EMAIL_USE_TLS = True
 SSOP_ADMIN_EMAIL = "ssopadmin.gsl@noaa.gov"
-EMAIL_TEST_USERS = ['kirk.l.holub@gmail.com', 'kirk.l.holub@noaa.gov']
+
+# Prevents bombarding most users with test emails while development is happening
+#EMAIL_TEST_USERS = ['kirk.l.holub@gmail.com', 'kirk.l.holub@noaa.gov']
+# An empty set means send notices to all users
+EMAIL_TEST_USERS = []
 
 
 USER_HAS_AUTHENTICATED_SUBJECT = 'SSOPSB Login'
@@ -173,19 +181,22 @@ USER_HAS_AUTHENTICATED_BODY = body
 # Policy per Security Officer
 CONTACT_RENEWAL_PERIOD_DAYS = 60 
 # days to minutes for debugging
-#CONTACT_RENEWAL_PERIOD_DAYS = 6
+#CONTACT_RENEWAL_PERIOD_DAYS = 4 
 
 # days to minutes for debugging
 CONTACT_RENEWAL_PERIOD_SECONDS = CONTACT_RENEWAL_PERIOD_DAYS * 24 * 60 * 60 
-#CONTACT_RENEWAL_PERIOD_SECONDS = CONTACT_RENEWAL_PERIOD_DAYS * 3600 
 # days to minutes for debugging
 #CONTACT_RENEWAL_PERIOD_SECONDS = CONTACT_RENEWAL_PERIOD_DAYS * 1 * 1 * 60 
 CONTACT_RENEWAL_PERIOD_TIMEDELTA = datetime.timedelta(seconds=CONTACT_RENEWAL_PERIOD_SECONDS)
 
+# time delay before initial warning and it results in having one token with a longer expiration time; this is exploited for account removal
+EXPIRES_DT_DELTASECONDS = 600
+# days to minutes for debugging
+#EXPIRES_DT_DELTASECONDS = 30
 
 CONTACT_RENEWAL_PERIOD_WARNINGS = [] 
-# Send an warning email on these days before an account is deleted
-CONTACT_RENEWAL_PERIOD_WARNING_DAYS = [1, 14]
+# Send an warning email on this many days before an account is deleted
+CONTACT_RENEWAL_PERIOD_WARNING_DAYS = [1, 15]
 for d in CONTACT_RENEWAL_PERIOD_WARNING_DAYS:
     CONTACT_RENEWAL_PERIOD_WARNINGS.append(datetime.timedelta(days=d))
     # days to minutes for debugging
@@ -195,19 +206,24 @@ for d in CONTACT_RENEWAL_PERIOD_WARNING_DAYS:
 if len(CONTACT_RENEWAL_PERIOD_WARNINGS) > int(1):
     CONTACT_RENEWAL_PERIOD_WARNINGS.sort() 
 
+
+# in seconds
+ACCOUNT_REVIEW_NAPTIME = 35
+
 USER_REMOVAL_NOTICE_SUBJECT = 'Single Sign-On Portal Sandbox access expiration notice'
 body = 'Hello firstname,\n'
-body = body + '\nYour authorized Single Sign-on Portal Sandbox (SSOPSB) projects are: project_list\n'
+body = body + '\nThe Single Sign-on Portal Sandbox (SSOPSB) is now automatically enforcing NOAA policy which requires the review of user access every ' + str(CONTACT_RENEWAL_PERIOD_DAYS) + ' days.\n'
+body = body + '\nYour authorized SSOPSB projects are: project_list\n'
 body = body + 'If you require continued access to any of these projects, then you must login to a project before expires_datetime UTC.\n'
 body = body + 'Or, you may use this link to acknowledge your need for continued access: renewal_link.\n'
-body = body + '\nYour SSOPSB access will be removed in removed_in_dtdelta at expires_datetime UTC if you take no action.\n'
+body = body + '\nYour SSOPSB access will be removed in removed_in_dtdelta days at expires_datetime UTC if you take no action.\n'
 #body = body + '    Last connected at: last_connected_datetime\n'
 #body = body + '    Previous warning sent at: warned_datetime\n'
 body = body + '\nYour access can be removed immediately by visiting: remove_account_link\n'
 body = body + '\nPlease contact the project owner if you have any questions.\n'
+body = body + '\nDo not reply directly to this email; the sending address is not monitored.\n'
 #body = body + 'body_comment'
 USER_REMOVAL_NOTICE_BODY = body
-
 
 # https://stackoverflow.com/questions/8023126/how-can-i-test-https-connections-with-django-as-easily-as-i-can-non-https-conne1826
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
@@ -326,8 +342,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sitemaps',
     'django_extensions',
 ]
+
+# https://docs.djangoproject.com/en/4.2/ref/contrib/sites/#module-django.contrib.sites
+#SITE_ID = 1
 
 MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -425,9 +445,6 @@ MIGRATIONPWD = get_secret('MIGRATION_SECRET')
 #DBPWD = MIGRATIONPWD
 
 
-
-
-
 # https://www.laurencegellert.com/2019/03/making-djangos-database-connection-more-secure-for-migrations/
 DATABASES = {
     'default': {
@@ -496,14 +513,22 @@ USE_TZ = True
 DEFAULT_DATETIME_STR = '0001-01-01T00:00:00+00:00'
 DEFAULT_DATETIME = datetime.datetime.fromisoformat(DEFAULT_DATETIME_STR)
 
+# SSO
+CSRF_TRUSTED_ORIGINS = ['https://sso-dev.noaa.gov', 'https://sso.noaa.gov']
+SAML_FOLDER = os.path.join(BASE_DIR, 'sites/saml')
+#SSO_ERROR_REDIRECT = 'https://gsl.noaa.gov/ssopsb/oops'
+SSO_ERROR_REDIRECT = EXTERNAL_URL + 'oops'
+ICAM_AUTH_RETURN_TO = EXTERNAL_URL + "icam_authenticated"
 
-
+# for admin backend, we must return to the server
+SSOPADMIN_AUTH_RETURN_TO = "/ssopsb/adminssopsb/sites/"
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
 STATIC_URL = '/static/'
 STATIC_ROOT = '/usr/share/nginx/html/static/'
+
 
 MEDIA_ROOT = 'uploads/'
 MEDIA_URL = '/uploads/'
@@ -519,13 +544,19 @@ LOGINDOTGOV_CLIENT_ID = 'urn:gov:gsa:openidconnect.profiles:sp:sso:noaa_oar:ssop
 
 # Basic identity assurance, does not require identity verification (this is the most common value).
 LOGINDOTGOV_ACR = 'http://idmanagement.gov/ns/assurance/ial/2'
+LOGINDOTGOV_ACR_PFISHING_RESISTANT = 'http://idmanagement.gov/ns/assurance/ial/2&phishing_resistant=true'
 LOGINDOTGOV_CLIENT_ASSERTION_TYPE = 'urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer'
 LOGINDOTGOV_SCOPE = 'openid+email+profile+first_name+last_name'
-LOGINDOTGOV_RETURN_TO = 'https://gsl.noaa.gov/ssopsb/ldg_authenticated'
-LOGINDOTGOV_ERROR_REDIRECT = 'https://gsl.noaa.gov/ssopsb/oops'
-LOGINDOTGOV_LOGOUT_URI = 'https://gsl.noaa.gov/ssopsb/sites'
-LDG_BASE  = 'https://gsl.noaa.gov/ssopsb/'
+#LOGINDOTGOV_RETURN_TO = 'https://gsl.noaa.gov/ssopsb/ldg_authenticated'
+#LOGINDOTGOV_ERROR_REDIRECT = 'https://gsl.noaa.gov/ssopsb/oops'
+#LOGINDOTGOV_LOGOUT_URI = 'https://gsl.noaa.gov/ssopsb/sites'
+#LDG_BASE  = 'https://gsl.noaa.gov/ssopsb/'
+LOGINDOTGOV_RETURN_TO = EXTERNAL_URL + 'ldg_authenticated'
+LOGINDOTGOV_ERROR_REDIRECT = EXTERNAL_URL + 'oops'
+LOGINDOTGOV_LOGOUT_URI = EXTERNAL_URL + 'sites'
+LDG_BASE  = EXTERNAL_URL
 LDG_POSTFIX  = '/'
+
 
 
 # A known parameter return on auth sucess .... can be whatever we want as long as its > 22 chars
@@ -557,8 +588,6 @@ JWTEXP = 300
 
 # Length of a production key -- to aid in deployments
 PRODKEYLEN = 60
-# Length of a production key -- to aid in deployments
-PRODKEYLEN = 60
 
 # Attributes one-time access token lifetime in seconds
 ATTRS_ACCESS_TOKEN_LIFETIME = JWTEXP
@@ -569,7 +598,7 @@ NODE_TYPE_CHOICES = ['AllConnections', 'Attribute', 'AttributeGroup', 'Browser',
 # If true, [nodenumber] will we prepended to each node label
 LABELNODES = False
 
-# to reduce clutter in the Projects list
+# helps to reduce clutter in the Projects list
 MAXUSERLIST = 3
 
 # supported logo image types
@@ -579,37 +608,45 @@ for it in LOGO_FILETYPES:
    LOGO_FILETYPESTR += str(it) + ', '
 LOGO_FILETYPESTR = LOGO_FILETYPESTR[:-2]
 
-HELP_NAME = "A simple, urlsafe (no spaces or special characters) name for this project and its login url."
-HELP_VERBOSE_NAME = "A longer name which does not have to be urlsafe (no spaces or special characters) for this project used for login urls.  It will be set to the project name if 'newproject' remains in the field."
-HELP_RETURN_TO = "The URL to which authenticated users will be sent.  An authentication token string will be appended to the url using a ?"
+HELP_NAME = "A simple, urlsafe (no spaces or special characters) name for this project.  It will be used to create a login url."
+HELP_VERBOSE_NAME = "A longer name which does not have to be urlsafe (no spaces or special characters) for this project.  It will be set to the project's name if 'newproject' remains in the field."
+HELP_RETURN_TO = "The URL to which authenticated users will be sent.  An authentication token string may be appended to the url using a ?"
 HELP_ERROR_REDIRECT = "Users are directed to this url upon a login error.  Override the default value for custom error handling."
 HELP_STATE = "A unique, immutable key used to differentiate projects.  This will be automatically set by the first Save operation."
-HELP_CONNECTION_STATE = "A unique, immutable key used to differentiate connection requests.  This will be automatically set during each connection to login.gov"
+HELP_CONNECTION_STATE = "A unique, immutable key used to differentiate connection requests.  This will be automatically set during each connections to an identity provider"
 HELP_PUBCERT = "To generate a 2048-bit PEM-encoded public certificate for your project (with a 1-year validity period) run this command:<br>     openssl req -nodes -x509 -days 365 -newkey rsa:2048 -keyout private.pem -out public.crt<br>   This certificate is used to sign json web tokens."
 HELP_DECRYPT_KEY_NAME = "Name of the 32 byte urlsave_64bencoded string generated using fernet.generate_key.<br>   This symetric key is used to encrypt data in transit.<br>  To rekey, delete the key and add a new one manually."
 HELP_DECRYPT_KEY = "A 32 byte urlsave_64bencoded string generated using fernet.generate_key.<br>   This symetric key is used to encrypt data in transit."
+HELP_DECRYPT_KEY_NAME = "A meaningful name used for display purposes.  If left as 'setme' a unique name will be created."
 HELP_QUERYPARAM = "If True, the html query parameter specified in the URL query delimiter field and the access token value will be appended onto the RETURN_TO url."
 HELP_DISPLAY_ORDER = "Used to order the projects on the main screen.  Item 1 is top, left.  If order is identical to another project(s), alphabetic sub-sorting will be used."
 HELP_ENABLED = "If True the project's tile will be available on the main screen."
 HELP_EXPIRETOKENS = "If True this project's authorization tokens will be fetched (and expired) upon use, as it will be in production.  If False (the default state), tokens will never expire which is convenitent for development work."
 HELP_ORGANIZATION = "Organization responsible for this project."
-HELP_USERLIST = "A list of authorized users.  Use command-click to select multiple users.  Click + to add a new Contact."
 HELP_GRAPHNODE = "Used for connection graphing.  Automatically generated when needed."
 HELP_LOGOIMG = "An image used for the Project's tile on the main page.  Types are limited to: " + LOGO_FILETYPESTR + ".  The image will be resized using a square aspect ratio."
 HELP_APP_PARAMS = "Optional field for application use.  Defaults is an empty dictionary."
 HELP_PROJECT_OWNER = "The Federal sponsor for this Project."
 HELP_CONTACT_EMAIL = "If email is the only field set, then the system will attempt to set firstname and lastname by splitting email address on the '@' and '.' characters when the SAVE button is clicked."
+HELP_PFISHING_RESISTANT = "When true, users must use a crytographically secure method authentication method, such as WebAuthn or a PIV/CAC.  This setting only applied to login.gov since ICAM authentication always requires a CAC."
+HELP_IDP = "The Identity Provider to be used -- select ICAM for CAC or PIV card based authenticaion."
+HELP_SSOSTR = "SSO string sent in the HTML header cookie.  This sent is in addition to the HTTP Authentication header to support applications which may not be able to read the HTTP header."
+HELP_ICAM_ATTRIBUTES = "User's ICAM attributes"
+HELP_ICAM_GROUPS = "ICAM groups authorized for this project.  Users who are members of these groups will be authorized for this project.  Use command-click to select multiple groups."
+HELP_USERLIST = "Users authorized for this project.  This list is IGNORED for ICAM authenticated Projects!  Use command-click to select multiple users.  Click + to add a new Contact."
 
-
-
-
-
+# Critical Weather Day Status page
 CWD_PREV = "uploads/ncocwd.txt"
 CWD_URL = "https://www.nco.ncep.noaa.gov/status/cwd/"
-PAGE_REFRESH_RATE = "60"
-# NCO likely only refreshes on synoptic times 0, 6, 12, 18 UTC.  However, just in case, pull every hour
-CWD_FETCH_INTERVAL = 3600
-     
-# in seconds
-ACCOUNT_REVIEW_NAPTIME = 60
- 
+CWD_PAGE_REFRESH_RATE = 60
+
+# NCO likely only refreshes on synoptic times 0, 6, 12, 18 UTC.  However, just in case, pull every 15 minutes 
+CWD_FETCH_INTERVAL = 900
+DATA_CENTER_ROOMS = {
+        "GA405": {"name": "(High Performance Computing Facility)", "state": "Normal"},
+        "2B518": {"name": "(Central Facility Annex)", "state": "Normal"},
+        "2B201": {"name": "(Central Computing Facility)", "state": "Normal"}
+}
+
+#  1248
+

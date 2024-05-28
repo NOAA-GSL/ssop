@@ -4,6 +4,16 @@
 {% get_current_language as LANGUAGE_CODE %}{% get_current_language_bidi as LANGUAGE_BIDI %}
 <html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-CL5MQ307LW"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+    
+      gtag('config', 'G-CL5MQ307LW');
+    </script>
+
     <title>{% block title %}{% endblock %}</title>
     <link rel="stylesheet" type="text/css"
           href="{% block stylesheet %}https://gsl.noaa.gov/ssopsb/static/admin/css/base.css{% endblock %}"/>
@@ -15,12 +25,13 @@
     {% block blockbots %}
         <meta name="robots" content="NONE,NOARCHIVE"/>{% endblock %}
 
-    <! -- from gsl.noaa.gov -->
-    <script src="/packs/js/application-83ad608674c98f33f988.js" defer="defer"></script>
-    <link rel="stylesheet" media="all" href="/packs/css/application-498ed2c4.css" />
+    <! -- from gsl.noaa.gov - view the page source -->
+    <! -- updated 18 Apr 2024 -->
+    <script src="/packs/js/application-a72f29c1939dea3e12d5.js" defer="defer"></script>
+    <link rel="stylesheet" media="all" href="/packs/css/application-e00d7679.css" />
     <link rel="stylesheet" media="all" href="/assets/application-49621cfb31c9c3ce5fda143828c9352cc93c4ef63ba0bdf6cec120439b48fe3d.css" />
+
     <link rel="stylesheet" type="text/css" href="/ssopsb/static/grid/css/grid.css"/>
-    <!-- <link rel="stylesheet" type="text/css" href="https://gsl.noaa.gov/ssopsb/static/grid/css/cwd.css"/> -->
 
 </head>
 {% load i18n %}

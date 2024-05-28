@@ -2,14 +2,15 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
+import ast
 import pytz
 import os
 import filecmp
-
+import json
+from typing import Dict
 from ssop import settings
 
-from sites.models import About, Attributes, AttributeGroup, Connection, Contact, Key, Organization, Project
-#, Uniqueuser
+from sites.models import About, Attributes, AttributeGroup, Connection, Contact, Key, Organization, Project, Room, Sysadmin
 
 class Command(BaseCommand):
     help = "Dumps objects in JSON"
@@ -24,86 +25,106 @@ class Command(BaseCommand):
         allkey = Key.objects.all()
         allproj = Project.objects.all()
         allorg = Organization.objects.all()
-        #alluu = UniqueUser.objects.all()
+        allroom = Room.objects.all()
 
         data = {}
         now = str(timezone.now())
         now = now[0:19]
         now = now.replace(' ', '_')
         now = now.replace('-', '', 3)
-        data["dumputc"] = now 
-        #print("      dumputc = " + str(now))
+        nret = {}
+        nret["dumputc"] = str(now).strip()
+        data["dumputc"] = "dumputc: " + str(nret).strip()
+        #print("      dumputc = " + str(now).strip())
 
         aret = {}
-        data["about"] = aret
+        data["About"] = aret
         for a in allabout:
-            aret[str(a)] = {}
+            akey = "Version:" + str(a).strip()
+            aret[akey] = {}
             for (k,v) in a.get_fields():
-                aret[str(a)][str(k)] = v
-        #print("      about = " + str(aret))
+                aret[akey][str(k).strip()] = str(v).strip()
+        #print("      about = " + str(aret).strip())
 
         pret = {}
-        data["projects"] = pret
+        data["Projects"] = pret
         for p in allproj:
-            pret[str(p)] = {}
+            pkey = "name:" + str(p).strip()
+            pret[pkey] = {}
             for (k,v) in p.get_fields():
-                pret[str(p)][str(k)] = str(v)
+                if not isinstance(v, str):
+                    if isinstance(v, Key):
+                        kd = {}
+                        for kk, kv in v.get_fields():
+                            kd[kk] = str(kv)
+                        v = kd 
+                    pret[pkey][str(k).strip()] = str(v)
+                else:
+                    pret[pkey][str(k).strip()] = v
         #print("        " + str(len(pret)) + " projects")
 
         cret = {}
-        data["contacts"] = cret
-        for v in allcontact:
-            cret[str(v)] = v.get_value()
+        data["Contacts"] = cret
+        for c in allcontact:
+            ckey = "firstname lastname (email):" + str(c).strip()
+            cret[ckey] = {}
+            for (k,v) in c.get_fields():
+                cret[ckey][str(k).strip()] = str(v).strip()
         #print("        " + str(len(cret)) + " contacts")
 
         kret = {}
-        data["keys"] = kret
-        for v in allkey:
-            kret[str(v)] = v.get_key()
+        data["Keys"] = kret
+        for ak in allkey:
+            akkey = "name:" + str(ak).strip()
+            kret[str(akkey).strip()] = {}
+            for (k,v) in ak.get_fields():
+                kret[akkey][str(k).strip()] = str(v).strip()
         #print("        " + str(len(kret)) + " keys")
 
         oret = {}
-        data["organizations"] = oret
+        data["Organizations"] = oret
         for o in allorg:
-            oret[str(o)] = {}
+            okey = "name:" + str(o).strip()
+            oret[str(okey).strip()] = {}
             for (k,v) in o.get_fields():
-                oret[str(o)][str(k)] = v
+                oret[okey][str(k).strip()] = str(v).strip()
         #print("        " + str(len(oret)) + " organizations")
 
         atret = {}
-        data["attributes"] = atret
+        data["Attributes"] = atret
         for a in allattributes:
-            atret[str(a)] = {}
+            atkey = "fingerprint:" + str(a).strip()
+            atret[str(atkey).strip()] = {}
             for (k,v) in a.get_fields():
-                atret[str(a)][str(k)] = v
+                atret[atkey][str(k).strip()] = str(v).strip()
         #print("        " + str(len(atret)) + " attributes")
 
         agret = {}
-        data["attributeGroups"] = agret
+        data["AttributeGroups"] = agret
         for a in allattributegroups:
-            agret[str(a)] = {}
+            agkey = "name:" + str(a).strip()
+            agret[agkey] = {}
             for (k,v) in a.get_fields():
-                agret[str(a)][str(k)] = v
+                agret[agkey][str(k).strip()] = str(v).strip()
         #print("        " + str(len(agret)) + " attributeGroups")
 
-        data = str(data).replace("'", '"', 1000000)
+        rmret = {}
+        data["Room"] = rmret
+        for r in allroom:
+            rkey = "number:" + str(r).strip()
+            rmret[rkey] = {}
+            for (k,v) in r.get_fields():
+                rmret[rkey][str(k).strip()] = str(v).strip()
+        #print("        " + str(len(rmret)) + " Rooms")
 
-        fname = settings.DBDUMP_ROOT + 'SSOPSB_' + now.replace(':', '', 4) + '.json'
-        fp = open(fname, 'w')
-        fp.write(str(data))
-        fp.close()
+        for dt in data.keys():
+            fname = settings.DBDUMP_ROOT + 'SSOPSB_' + now.replace(':', '', 4) + '_' + str(dt) + '.json'
+            with open(fname, 'w') as fh:
+                json.dump(data[dt], fh)
 
-        cname = settings.DBDUMP_ROOT + 'current.json'
-        if not os.path.exists(cname):
-            os.symlink(fname, cname)
-        try:
-           if not filecmp.cmp(fname, cname):
-              if os.path.exists(cname):
-                  os.remove(cname)
-              os.symlink(fname, cname)
-           else:
-              os.remove(fname)
-
-        except OSError:
-           pass
+        #dataout = str(data).replace("'", '"', 10000000)
+        #fname = settings.DBDUMP_ROOT + 'SSOPSB_' + now.replace(':', '', 4) + '.json'
+        #fp = open(fname, 'w')
+        #fp.write(dataout)
+        #fp.close()
 

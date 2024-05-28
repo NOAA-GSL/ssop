@@ -1,6 +1,7 @@
 import logging
 from django.contrib import admin
-from sites.models import About, Attributes, AuthToken, Organization, Project, Connection, Contact, Uniqueuser, AttributeGroup, GraphNode, NodeType, Key, Sysadmin, Room, get_or_add_authtoken
+from django.contrib.auth.models import Group
+from sites.models import About, Attributes, AuthToken, Organization, Project, Connection, Contact, Uniqueuser, AttributeGroup, GraphNode, NodeType, Key, Sysadmin, Room, get_or_add_authtoken, SSOObj
 from sites.forms import ProjectAdminForm, SysadminAdminForm
 from ssop import settings
 
@@ -32,7 +33,7 @@ class AttributesAdmin(admin.ModelAdmin):
 
 
 class AuthTokenAdmin(admin.ModelAdmin):
-    list_display = ('token', 'created', 'expires', 'accessed')
+    list_display = ('token', 'created', 'expires', 'accessed', 'days_until_accessed')
     list_display_links = list_display
     readonly_fields = list_display
 
@@ -41,7 +42,7 @@ class ConnectionAdmin(admin.ModelAdmin):
     #list_display = ('name', 'project', 'requestattrs', 'uniqueuser', 'userattrs', 'token', 'created', 'loggedout')
     list_display = ('name', 'project', 'uniqueuser', 'token', 'created', 'loggedout')
     list_display_links = list_display
-    readonly_fields = ('name', 'project', 'uniqueuser', 'token', 'created', 'loggedout', 'attrsgroup', 'connection_state')
+    readonly_fields = ('name', 'project', 'uniqueuser', 'created', 'loggedout', 'attrsgroup', 'connection_state')
 
 
 class ContactAdmin(admin.ModelAdmin):
@@ -81,9 +82,10 @@ class OrganizationAdmin(admin.ModelAdmin):
     ordering = ('name',)
 
 
+# ****** NOTE *******: class ProjectAdminForm exists in forms.py and it defines field_order (which does not contain all of the list_display fields)
 class ProjectAdmin(admin.ModelAdmin):
     #list_display = ('name', 'organization', 'enabled', 'expiretokens', 'return_to', 'queryparam', 'error_redirect', 'display_order', 'state', 'decrypt_key', 'graph_node_id')
-    list_display = ('name', 'verbose_name', 'organization', 'enabled', 'expiretokens', 'queryparam', 'return_to', 'error_redirect', 'contacts_url', 'owner', 'users', 'app_params', 'decrypt_key', 'state', 'logoimg', 'showlogobin', 'display_order', 'state', 'decrypt_key', 'updated')
+    list_display = ('name', 'verbose_name', 'organization', 'enabled', 'idp', 'expiretokens', 'pfishing_resistant', 'queryparam', 'return_to', 'error_redirect', 'contacts_url', 'owner', 'users', 'list_app_params', 'decrypt_key', 'state', 'logoimg', 'showlogobin', 'display_order', 'state', 'decrypt_key', 'updated')
     list_display_links = list_display
     #readonly_fields = ('state', 'updater') 
     ordering = ('display_order', 'organization', 'name')
@@ -99,6 +101,16 @@ class ProjectAdmin(admin.ModelAdmin):
                 ncontact = ncontact[0]
                 form = super(ProjectAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
                 form.initial = {ncontact.id: True}
+        if str(db_field) == 'sites.Project.groups':
+            #kwargs['queryset'] = Group.objects.all().order_by('firstname')
+            kwargs['queryset'] = Group.objects.all()
+            #ncontact = Contact.objects.filter(email=settings.NONE_EMAIL)
+            #if ncontact.count() > int(0):
+            #    ncontact = ncontact[0]
+            #    form = super(ProjectAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
+            #    form.initial = {ncontact.id: True}
+            form = super(ProjectAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
+            form.initial = {0: True}
         return form
 
 
@@ -157,3 +169,4 @@ admin.site.register(Project, ProjectAdmin)
 admin.site.register(Room, RoomAdmin)
 admin.site.register(Sysadmin, SysadminAdmin)
 admin.site.register(Uniqueuser, UniqueuserAdmin)
+admin.site.register(SSOObj)

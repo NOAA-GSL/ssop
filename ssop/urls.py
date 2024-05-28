@@ -16,18 +16,23 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import include, path
+#from django.contrib.sitemaps.views import sitemap
 
-from sites.views import (index, ldg, ldg_authenticated, logout, ldg_auth_error, oops, demoapp_python, demoapp_authorization, attrs, metadata, pubcert, pubcertol)
+from sites.views import (index, icam, icam_authenticated, ldg, ldg_authenticated, logout, ldg_auth_error, oops, demoapp_python, demoapp_authorization, attrs, metadata, pubcert, pubcertol)
 
 #urlpatterns = [
 #    path('admin/', admin.site.urls),
 #    path('ssopsb/admin/', admin.site.urls),
+#    path( "sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="django.contrib.sitemaps.views.sitemap"),
 urlpatterns = [
     path('adminssopsb/', admin.site.urls),
     path('ssopsb/adminssopsb/', admin.site.urls),
     path('ldg_authenticated/', ldg_authenticated, name='ldg_authenticated'),
     path('ldg/', ldg, name='ldg'),
     path('ldg/<str:project_name>/', ldg, name='ldg'),
+    path('icam/<str:project_name>/', icam, name='icam'),
+    path('icam_authenticated/', icam_authenticated, name='icam_authenticated'),
+    path('icam_authenticated/<str:project_name>/', icam_authenticated, name='icam_authenticated'),
     path('logout/', logout, name='logout'),
     path('logout/<str:connection_state>/', logout, name='logout'),
     path('ssopsb/', include(('sites.urls', 'sites'), namespace='ssopsb')),
@@ -42,6 +47,9 @@ urlpatterns = [
     path('ssopsb/login/', ldg, name='login'),
     path('ssopsb/logout/', logout, name='ssopsb_logout'),
     path('ssopsb/logout/<str:connection_state>', logout, name='ssopsb_logout'),
+    path('ssopsb/icam/<str:project_name>/', icam, name='icam'),
+    path('ssopsb/icam_authenticated/', icam_authenticated, name='ssopsb_icam_authenticated'),
+    path('ssopsb/icam_authenticated/<str:project_name>/', icam_authenticated, name='ssopsb_icam_authenticated'),
     path('ssopsb/', index),
     path('pubcert/', pubcert),
     path('attrs/', attrs, name='attrs'),

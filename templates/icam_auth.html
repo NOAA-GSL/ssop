@@ -1,0 +1,15 @@
+{% extends "base_site.html" %}
+{% load icam_url %}
+
+{% block extrahead %}
+  {% if cwd_refresh_rate %}
+    <meta http-equiv="refresh" url="{{ icam_url }}" content="0">
+  {% else %}
+    <meta http-equiv="refresh" content="30">
+  {% endif %}
+{% endblock %}
+
+
+{% block content %}
+    Redirecting
+{% endblock %}

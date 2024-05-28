@@ -252,8 +252,10 @@
          <div class="hd-opt-d">Current Status</div>
 -->
 
-	   <div class=col-opt-normal>Normal</div>
-           <div class='text-opt-cwd-header'><br><br>There are no Critical Weather Days or Enhanced Caution Events in Effect.<br><br><br></div><div class='text-opt-cwd-subheaderc'><a href="https://sites.google.com/noaa.gov/nws-nco/playbooks">View IT Playbooks (internal NOAA access)</a></div>
+	   <div class=col-opt-critical>Critical</div>
+           <div class='text-opt-cwd-header'><br>Critical Weather Day is in Effect<br><br></div><div class='text-opt-i'>REASON: <reason>
+Wildfire ops for the Texas Panhandle into western Oklahoma.
+</reason><br>START: 1200Z Wed Mar 13 2024<br>END: 1200Z Thu Mar 14 2024<br><br></div><div class='text-opt-cwd-subheaderc'><a href="https://sites.google.com/noaa.gov/nws-nco/playbooks">View IT Playbooks (internal NOAA access)</a></div>
 
 
       </div>
@@ -284,18 +286,18 @@
 <!--***CWD Outlook***-->
      <div class="hd-opt-d">Outlook
 
-     <div class="hd-opt-e">Updated 0851Z Wed Oct 04 2023</div>
+     <div class="hd-opt-e">Updated 0843Z Wed Mar 13 2024</div>
 
      </div>
 
      <div class="row-opt-e-d">
-     <div class="col-opt-l-d-Normal">12Z Wed Oct 04 - 12Z Thu Oct 05</div><div class="col-opt-l-d-Normal">12Z Thu Oct 05 - 12Z Fri Oct 06</div><div class="col-opt-l-d-Normal">12Z Fri Oct 06 - 12Z Sat Oct 07</div>     </div>   
+     <div class="col-opt-l-d-Critical">12Z Wed Mar 13 - 12Z Thu Mar 14</div><div class="col-opt-l-d-Normal">12Z Thu Mar 14 - 12Z Fri Mar 15</div><div class="col-opt-l-d-Normal">12Z Fri Mar 15 - 12Z Sat Mar 16</div>     </div>   
      <div class="row-opt-e">
-     <div class="col-opt-l-Normal"><div class="row-opt-d"><div class="col-opt-w">Normal</div><div class="col-opt-x"></div></div></div><div class="col-opt-l-Normal"><div class="row-opt-d"><div class="col-opt-w">Normal</div><div class="col-opt-x"></div></div></div><div class="col-opt-l-Normal"><div class="row-opt-d"><div class="col-opt-w">Normal</div><div class="col-opt-x"></div></div></div>     </div>
+     <div class="col-opt-l-Critical"><div class="row-opt-d"><div class="col-opt-w">Critical</div><div class="col-opt-x"><img src="https://www.nco.ncep.noaa.gov/status/css/images/icon-wildfire.png" width="30" height="30" style="border-bottom:3px solid red; background-color: black;"></img></div></div></div><div class="col-opt-l-Normal"><div class="row-opt-d"><div class="col-opt-w">Normal</div><div class="col-opt-x"></div></div></div><div class="col-opt-l-Normal"><div class="row-opt-d"><div class="col-opt-w">Normal</div><div class="col-opt-x"></div></div></div>     </div>
      
      <div class="row-opt-e-di">
        
-Critical Weather Day is not expected in the next 3 days.
+Critical Weather Day will be in effect from 1200Z Wednesday Mar 13 to 1200Z Thursday Mar 14 in support of fire weather ops across the Texas Panhandle into western Oklahoma. Also, the need for CWD to support severe weather operations in the Mid-Lower Mississippi Valley on Thursday is being closely monitored. 
      </div>
 
      <div class="hd-opt-d">Hazards</div>
@@ -475,7 +477,7 @@ Critical Weather Day is not expected in the next 3 days.
 
      <!--Display times page was loaded-->
   <div class="loadtime">
-  Page loaded: 14:49 UTC &nbsp; | &nbsp; 7:49 am Pacific &nbsp; | &nbsp; 8:49 am Mountain &nbsp; | &nbsp; 9:49 am Central &nbsp; | &nbsp; 10:49 am Eastern   </div>
+  Page loaded: 13:03 UTC &nbsp; | &nbsp; 6:03 am Pacific &nbsp; | &nbsp; 7:03 am Mountain &nbsp; | &nbsp; 8:03 am Central &nbsp; | &nbsp; 9:03 am Eastern   </div>
 
       
 

@@ -42,7 +42,7 @@ def server_url(request):
     return extra_context
 
 def cwd_refresh_rate(request):
-    extra_context = {'cwd_refresh_rate': settings.PAGE_REFRESH_RATE}
+    extra_context = {'cwd_refresh_rate': settings.CWD_PAGE_REFRESH_RATE}
     return extra_context
 
 def lapse_in_appropriations(request):
@@ -52,5 +52,13 @@ def lapse_in_appropriations(request):
         extra_context['lapse_in_appropriations_message_top'] = settings.LAPSE_IN_APPROPRIATIONS_MESSAGE_TOP
         extra_context['lapse_in_appropriations_link'] = settings.LAPSE_IN_APPROPRIATIONS_LINK
         extra_context['lapse_in_appropriations_message_bottom'] = settings.LAPSE_IN_APPROPRIATIONS_MESSAGE_BOTTOM
+    return extra_context
+
+def icam_url(request):
+    if hasattr(settings, 'ICAM_URL'):
+        icam_url = 'https://' + settings.ICAM_URL
+    else:
+        icam_url = 'Unknown_icam_url_for_' + str(request)
+    extra_context = {'icam_url': settings.ICAM_URL}
     return extra_context
 

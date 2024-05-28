@@ -2,7 +2,7 @@ from django.db import models
 from django.apps import apps
 from django.contrib.auth.models import User, Group, Permission
 from django.contrib.contenttypes.models import ContentType
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage
 from django.utils.timezone import now
 from django.utils.safestring import mark_safe
 from hashlib import md5
@@ -54,6 +54,30 @@ def runcmdl(cmdl, execute):
         except OSError as e:
             result = "exception: " + str(e) + ", result = " + str(result)
     return status, result
+
+def get_sso_uid(ssostr):
+    qs = SSOObj.objects.filter(ssostr=ssostr)
+    if qs.count() == int(1):
+        ssouid = qs[0].get_email()
+    else:
+        ssouid = None
+    return str(ssouid)
+
+def get_and_remove_sso_email(ssostr):
+    qs = SSOObj.objects.filter(ssostr=ssostr)
+    if qs.count() == int(1):
+        ssouid = qs[0].get_email()
+        qs[0].delete()
+    else:
+        ssouid = None
+    return ssouid
+
+def add_sso_obj(ssostr, email, icamattrs):
+    for ssoe in SSOObj.objects.filter(email=email):
+        ssoe.delete()
+    newsso = SSOObj(ssostr=ssostr, email=email, icamattrs=icamattrs)
+    newsso.save()
+    return newsso.get_email() 
 
 def get_or_add_authtoken(token):
     qs = AuthToken.objects.filter(token=token)
@@ -220,6 +244,15 @@ def add_groups_and_permissions():
         msg = str(now) + ":GroupobjectAddedPerms:" + groupname
         logger.info(msg)
 
+def add_datacenter_rooms():
+    for room in settings.DATA_CENTER_ROOMS.keys():
+        qs = Room.objects.all().filter(name=str(room))
+        if qs.count() < int(1):
+            name = settings.DATA_CENTER_ROOMS[room]['name']
+            state = settings.DATA_CENTER_ROOMS[room]['state']
+            newroom = Room(number=str(room), name=name, current_state=state)
+            newroom.save()
+
 def add_none_token():
     token = get_or_add_authtoken(settings.NONE_NAME)
     token.set_expire_time(settings.NONE_NEVER_EXPIRES)
@@ -288,6 +321,8 @@ def review_contacts():
     logger.info(msg)
     msg = "   CONTACT_RENEWAL_PERIOD_TIMEDELTA: " + str(settings.CONTACT_RENEWAL_PERIOD_TIMEDELTA)
     logger.info(msg)
+    msg = "   ACCOUNT_REVIEW_NAPTIME: " + str(settings.ACCOUNT_REVIEW_NAPTIME)
+    logger.info(msg)
     loopcount = int(1)
     while True:
         checkname = "/opt/ssop/ssop/settings.py"
@@ -302,18 +337,30 @@ def review_contacts():
         utcnow = datetime.datetime.utcnow()
         utcnow = utcnow.replace(tzinfo=pytz.UTC)
         utcnow = utcnow.replace(microsecond = 0)
-        #msg = str(loopcount) + " -- " + str(utcnow)
+        msg = str(loopcount) + " -- " + str(utcnow)
         #logger.info(msg)
         for token in AuthToken.objects.all():
             if utcnow > token.get_expiration_time():
                 if settings.NONE_NAME not in str(token):
-                    msg = "       delete token: " + str(token)
+                    msg = "       deleting token: " + str(token)
                     for user in Contact.objects.all():
                         if str(token) in str(user.get_renewal_tokens()):
                             msg = msg + " for " + str(user)
-                            break
-                    logger.info(msg)
+                            break 
+                    #msg = "       NOT deleting token: " + str(token)
                     token.delete()
+                    logger.info(msg)
+            
+        none_email = str(settings.NONE_EMAIL)
+        none_email = none_email.replace('#', '')
+        for user in Contact.objects.all():
+            if none_email in str(user.email):
+                continue
+  
+            # For development/debugging purposes -- we don't want to bombard folks with possible erroneous output.
+            if len(settings.EMAIL_TEST_USERS) > int(0): 
+                if str(user.email) not in str(settings.EMAIL_TEST_USERS):
+                    continue
             
         none_email = str(settings.NONE_EMAIL)
         none_email = none_email.replace('#', '')
@@ -321,17 +368,9 @@ def review_contacts():
             if none_email in str(user.email):
                 continue
     
-            if str(user.email) not in str(settings.EMAIL_TEST_USERS):
-                continue
-            
-        none_email = str(settings.NONE_EMAIL)
-        none_email = none_email.replace('#', '')
-        for user in Contact.objects.all():
-            if none_email in str(user.email):
-                continue
-    
-            if str(user.email) not in str(settings.EMAIL_TEST_USERS):
-                continue
+            if len(settings.EMAIL_TEST_USERS) > int(0): 
+                if str(user.email) not in str(settings.EMAIL_TEST_USERS):
+                    continue
 
             utcnow = datetime.datetime.utcnow()
             utcnow = utcnow.replace(tzinfo=pytz.UTC)
@@ -348,13 +387,28 @@ def review_contacts():
             msg = msg + " and has " + str(num_tokens) + " renewal tokens"
             #logger.info(msg)
 
+            if user.get_renewal_tokens().count() == int(2):
+                if none_email in str(user.email):
+                    continue
+                try:
+                    user.delete()
+                    msg = " ----- account " + str(user) + " deleted ----- "
+                except ValueError:
+                    msg = " ----- failed to delete account " + str(user) + " ValueError ----- "
+                logger.info(msg)
+             
 
             if num_tokens <= int(1):
                 renewal_token = get_or_add_authtoken('newtoken')
                 renewal_token.save()
-                expires_dt = utcnow + (2 * settings.CONTACT_RENEWAL_PERIOD_TIMEDELTA)
-                renewal_token.set_expire_time(expires_dt + datetime.timedelta(seconds=30))
-                renewal_token.set_renewed(expires_dt)
+                expires_dt = utcnow + settings.CONTACT_RENEWAL_PERIOD_TIMEDELTA
+                renewal_token.set_expire_time(expires_dt + datetime.timedelta(seconds=settings.EXPIRES_DT_DELTASECONDS))
+                if str(settings.DEFAULT_DATETIME) in str(last_connected):
+                    renewal_token.set_renewed(utcnow + datetime.timedelta(seconds=settings.EXPIRES_DT_DELTASECONDS))
+                else:
+                    renewal_token.set_renewed(expires_dt + datetime.timedelta(seconds=settings.EXPIRES_DT_DELTASECONDS))
+                    msg = "       " + str(user) + " renewed via token" 
+                    logger.info(msg)
                 user.add_renewal_token(renewal_token)
                 for dt in settings.CONTACT_RENEWAL_PERIOD_WARNINGS:
                     accessed = expires_dt - dt
@@ -373,10 +427,9 @@ def review_contacts():
                         if settings.NONE_NAME not in str(rt):
                             rt.delete()
                             msg = " ----- DELETED token ----- " + str(rt) + " for " + str(user) + " at " + str(utcnow)
-                            logger.info(msg)
                     except ValueError as ve:
                         msg = " ----- value error ve: " + str(ve)
-                        logger.info(msg)
+                    logger.info(msg)
 
             for rt in user.get_renewal_tokens():
                 #msg = "        rt: " + str(rt)
@@ -384,13 +437,13 @@ def review_contacts():
                 if settings.NONE_NAME in str(rt.token):
                     continue
 
-                msg = "        rt: " + str(rt)
+                #msg = "        rt: " + str(rt)
                 #logger.info(msg)
                 expires = rt.get_expiration_time()
-                msg = "    renewal_token " + str(rt) + " expires at " + str(expires)
+                #msg = "    renewal_token " + str(rt) + " expires at " + str(expires)
                 #logger.info(msg)
                 warned = rt.get_renewal_time()
-                msg = "    renewal_token warned: " + str(warned)
+                #msg = "    renewal_token warned: " + str(warned)
                 #logger.info(msg)
 
                 body_comment = ''
@@ -412,9 +465,9 @@ def review_contacts():
                     lcdt = lcdt.strftime('%Y-%m-%d %H:%M:%S')
 
                     removed_in_dtdelta = expires - warned
-                    if ',' in str(removed_in_dtdelta):
-                        removed_in_dtdelta = removed_in_dtdelta.replace(', 0:00:00', '')
                     removed_in_dtdeltastr = str(removed_in_dtdelta)
+                    if ',' in str(removed_in_dtdeltastr):
+                        removed_in_dtdeltastr = removed_in_dtdeltastr.replace(', 0:00:00', '')
 
                     kwargs = {"user": user, "lcdt": lcdt, "body_comment": body_comment}
                     kwargs["renewal_token"] = rt
@@ -422,8 +475,8 @@ def review_contacts():
                     kwargs["warned_datetime"] = warnedstr
                     kwargs["removed_in_dtdelta"] = removed_in_dtdeltastr
                     send_removal_notice_email(kwargs)
-                    #msg = "\n            ----- SEND_removal_notice_email ----- rt = " + str(rt) + "\n"
-                    #logger.info(msg)
+                    msg = "            ----- SEND_removal_notice_email ----- rt = " + str(rt) 
+                    logger.info(msg)
                     rt.set_renewed(settings.NONE_NEVER_EXPIRES)
                 #else:
                 #    msg = "   utcnow < warned"
@@ -432,15 +485,6 @@ def review_contacts():
             #msg = "           ------ user.get_renewal_tokens().count(): " + str(user.get_renewal_tokens().count())
             #logger.info(msg)
 
-            if user.get_renewal_tokens().count() == int(2):
-                try:
-                    msg = " ----- account " + str(user) + " deleted ----- "
-                    logger.info(msg)
-                    user.delete()
-                except ValueError:
-                    msg = " ----- failed to delete account " + str(user) + " ValueError ----- "
-                    logger.info(msg)
-             
         if int(settings.ACCOUNT_REVIEW_NAPTIME) > int(0):
             #msg = "    sleeping " + str(settings.ACCOUNT_REVIEW_NAPTIME) + ' seconds.'
             #logger.info(msg)
@@ -488,6 +532,27 @@ def get_attributesFromFp(fp):
             attrs[str(a)] = a
     return str(attrs)
 
+def get_or_add_contact(email, firstname=None, lastname=None):
+    qs = Contact.objects.filter(email=email)
+    if qs.count() < int(1):
+        if firstname and lastname:
+            ac = Contact(email=email, firstname=firstname, lastname=lastname)
+        else:
+            ac = Contact(email=email)
+        ac.save()
+    else:
+        ac = qs[0]
+    return ac 
+
+def get_or_add_group(name):
+    qs = Group.objects.filter(name=name)
+    if qs.count() < int(1):
+        ag = Group(name=name)
+        ag.save()
+    else:
+        ag = qs[0]
+    return ag
+
 def get_or_add_organization_by_name(name):
     qs = Organization.objects.filter(name=name)
     if qs.count() < int(1):
@@ -506,14 +571,17 @@ def add_organization_relationship(parent, child):
             child.parent = pqs[0]
             child.save()
           
-def get_or_add_decrypt_key(keyname=None):
+def get_or_add_decrypt_key(keyname=None, dk=None):
     key = None
     if keyname is not None:
         qs = Key.objects.filter(name=keyname)
         if qs.count() == int(1):
             key = qs[0]
     if key is None:
-        key = Key()
+        if dk:
+           key = Key(name=keyname, decrypt_key=dk)
+        else:
+           key = Key()
         key.save()
     return key
 
@@ -530,7 +598,7 @@ def get_or_add_project(project):
         er = project["error_redirect"]
         keyname = project["decrypt_key"]
         org = get_or_add_organization_by_name(og)
-        key = get_or_add_decrypt_key(keyname)
+        key = get_or_add_decrypt_key(keyname=keyname, dk=None)
         np = Project(name=name, display_order=do, queryparam=qp, enabled=en, verbose_name=vn, organization=org, return_to=rt, error_redirect=er, decrypt_key=key)
         np.save()
     else:
@@ -621,6 +689,9 @@ class Contact(models.Model):
     def __str__(self):
         return  self.firstname + ' ' + self.lastname + ' (' + str(self.email) + ')'
 
+    def get_fields(self):
+        return [(field.name, getattr(self,field.name)) for field in Contact._meta.fields]
+
     def save(self, *args, **kwargs):
         super(Contact, self).save(*args, **kwargs)
         if self.initstate():
@@ -630,6 +701,8 @@ class Contact(models.Model):
         need_to_update = False
         if settings.NONE_EMAIL not in self.email:
             email = str(self.email).lower()
+            msg = "   initstate email: " + str(email)
+            logger.info(msg)
             namestr, domains = str(self.email).split('@')
             if 'firstname' in self.firstname:
                 namestr = str(namestr).split('.')
@@ -706,7 +779,7 @@ class Contact(models.Model):
         for t in self.get_renewal_tokens():
             if settings.NONE_NAME not in str(t):
                 t.delete() 
-                msg = "       delete token t: " + str(t)
+                msg = "       in set_renewed -- deleted token t: " + str(t)
                 logger.info(msg)
         self.save()
         #msg = "      set_renewed --- Contact self " + str(self) + " last connected = " + str(self.last_connected())
@@ -739,7 +812,7 @@ class Project(models.Model):
     querydelimiter = models.CharField(default='?access_token=', max_length=24, verbose_name='URL query delimiter')
     error_redirect = models.CharField(max_length=150, default=settings.LOGINDOTGOV_ERROR_REDIRECT, help_text=mark_safe(settings.HELP_ERROR_REDIRECT))
     state = models.CharField(max_length=50, null=True, default='setme', help_text=mark_safe(settings.HELP_STATE))
-    decrypt_key = models.ForeignKey('sites.Key', null=True, blank=True, on_delete=models.CASCADE, help_text=mark_safe(settings.HELP_DECRYPT_KEY_NAME))
+    decrypt_key = models.ForeignKey('sites.Key', null=True, blank=True, on_delete=models.SET_NULL, help_text=mark_safe(settings.HELP_DECRYPT_KEY_NAME))
     updated = models.DateTimeField(auto_now_add=True)
     enabled = models.BooleanField(default=False, help_text=mark_safe(settings.HELP_ENABLED))
     expiretokens = models.BooleanField(default=False, help_text=mark_safe(settings.HELP_EXPIRETOKENS))
@@ -750,12 +823,31 @@ class Project(models.Model):
     owner = models.ForeignKey('sites.Contact', null=True, blank=True, on_delete=models.SET_NULL, help_text=mark_safe(settings.HELP_PROJECT_OWNER))
     userlist = models.ManyToManyField('sites.Contact', related_name='project_userlist', help_text=mark_safe(settings.HELP_USERLIST))
     app_params = models.TextField(max_length=4096, null=True, default='{}', help_text=mark_safe(settings.HELP_APP_PARAMS))
+    pfishing_resistant = models.BooleanField(default=False, help_text=mark_safe(settings.HELP_PFISHING_RESISTANT))
+    IDP_TYPE_SELECT = (('0', 'Login.gov'), ('1', 'ICAM'), ('2', 'Both ICAM and Login.gov -- two access urls will be available'))
+    idp = models.CharField(verbose_name='Identity Provider', max_length=80, choices=IDP_TYPE_SELECT, default='0', help_text=mark_safe(settings.HELP_IDP))
+    groups = models.ManyToManyField(Group, verbose_name='ICAM groups', related_name='project_groups', help_text=mark_safe(settings.HELP_ICAM_GROUPS))
     
     #field_order = ('name', 'organization', 'verbose_name', 'return_to', 'error_redirect', 'enabled', 'display_order', 'decrypt_key', 'logoimg', 'userlist', 'expiretokens', 'graphnode', 'state', 'queryparam', 'querydelimiter', )
     #field_order = ('name', 'organization', 'verbose_name', 'return_to', 'error_redirect', 'enabled', 'display_order', 'decrypt_key', 'logoimg', 'expiretokens', 'graphnode', 'state', 'queryparam', 'querydelimiter', )
 
     def __str__(self):
         return self.name
+
+    #def get_fields(self):
+    #    return [(field.name, getattr(self,field.name)) for field in Project._meta.fields]
+    def get_fields(self):
+        retlist =  []
+        for field in Project._meta.fields:
+            k = field.name
+            v = getattr(self,field.name)
+            if v is None:
+                v = "None"
+            retlist.append((k,v))
+
+        retlist.append(('userslist', self.get_all_users()))
+        retlist.append(('groupslist', self.groupslist()))
+        return retlist
 
     def graph_node_id(self):
         nid = str(-1)
@@ -863,6 +955,20 @@ class Project(models.Model):
     def get_state(self):
         return self.state
 
+    def not_pfishable(self):
+        return self.pfishing_resistant
+
+    def get_idp_type(self):
+        idptype = []
+        if '0' in str(self.idp):
+            idptype.append(('ldg/', 'login.gov'))
+        if '1' in str(self.idp):
+            idptype.append(('icam/', 'ICAM'))
+        if '2' in str(self.idp):
+            idptype.append(('ldg/', 'login.gov'))
+            idptype.append(('icam/', 'ICAM'))
+        return idptype 
+
     def get_verbose_name(self):
         return self.verbose_name
 
@@ -896,9 +1002,6 @@ class Project(models.Model):
     def append_access_token(self):
         return self.queryparam
 
-    def get_fields(self):
-        return [(field.name, getattr(self,field.name)) for field in Project._meta.fields]
-
     def get_logo(self):
         return self.logo
 
@@ -908,23 +1011,68 @@ class Project(models.Model):
             blen = len(self.get_logobin())
         return str(blen) + ' chars'
 
+    def get_groups(self):
+        groups = []
+        for g in self.groups.get_queryset():
+            groups.append(g.name)
+        return groups
+
     def get_logobin(self):
         return self.logobin
 
     def get_app_params(self):
         return self.app_params
 
+    def list_app_params(self):
+        params = at = ast.literal_eval(self.get_app_params())
+        retstr = str(len(params.keys())) + ' parameters'
+        return retstr 
+
     def users(self):
         users = []
         for a in self.userlist.get_queryset():
-            if not str(a).endswith("noaa.gov"):
-                users.append(str(a))
+            users.append(str(a))
         if len(users) > int(1):
             users.sort()
+
+        # MAXUSERLIST makes the GUI less cluttered 
         if len(users) <= int(settings.MAXUSERLIST):
-            retstr = str(users)
+            retstr = ''
+            for u in users:
+               retstr = retstr + str(u) + ','
+            # clean trailing , to make GUI look nice
+            retstr = retstr[:-1]
         else:
             retstr = str(len(users)) + " users"
+        return retstr
+
+    def get_all_users(self):
+        users = []
+        for a in self.userlist.get_queryset():
+            users.append(str(a))
+        if len(users) > int(1):
+            users.sort()
+        retstr = ''
+        for u in users:
+           retstr = retstr + str(u) + ','
+        # leave trailing , to facilitate splitting
+        return retstr
+
+    def groupslist(self):
+        grouplist = []
+        for g in self.groups.get_queryset():
+            grouplist.append(str(g))
+        if len(grouplist) > int(1):
+            grouplist.sort()
+        retstr = ''
+        # ICAM groups contain multiple commas as a delimiter, so a : facilitates downstream splitting
+        for g in grouplist:
+           retstr = retstr + str(g) + ':'
+        return retstr 
+
+    def num_groups(self):
+        grouplist = self.groupslist()
+        retstr = str(len(grouplist)) + " groups"
         return retstr
 
     def authorized(self, uu):
@@ -952,6 +1100,35 @@ class Project(models.Model):
             msg = str(email) + " NOT AUTHORIZED"
         #msg = msg + " for " + self.name
         #logger.info(msg)
+        return auth
+
+    def icam_authorized(self, uu):
+        auth = False
+
+        pgroups = set()
+        for g in self.get_groups():
+            pgroups.add(g)
+        #msg = "    icam_authorized -- project_groups: " + str(pgroups)
+        #logger.info(msg)
+
+        sqs = SSOObj.objects.filter(email=uu)
+        if sqs.count() > int(0):
+            icamattrs = sqs[0].get_icamattrs()
+            ale = ast.literal_eval(icamattrs)
+            try:
+                sso_groups = set()
+                for g in ale['isMemberOf']:
+                    sso_groups.add(g)
+                #msg = "    icam_authorized -- sso_groups: " + str(sso_groups)
+                #logger.info(msg)
+            except KeyError:
+                #msg = "    icam_authorized -- NO sso_groups"
+                #logger.info(msg)
+                pass
+            
+            auth = pgroups.issubset(sso_groups)
+            #msg = "    icam_authorized -- auth: " + str(auth)
+            #logger.info(msg)
         return auth
 
     def contact_emails(self):
@@ -1093,6 +1270,9 @@ class AuthToken(models.Model):
     def get_expiration_time(self):
         return self.expires
 
+    def get_accessed_time(self):
+        return self.accessed
+
     def set_expire_time(self, expires):
         self.expires = expires
         self.save()
@@ -1104,13 +1284,20 @@ class AuthToken(models.Model):
         self.accessed = renewed
         self.save()
 
+    def days_until_accessed(self):
+        utcnow = datetime.datetime.utcnow()
+        utcnow = utcnow.replace(tzinfo=pytz.UTC)
+        utcnow = utcnow.replace(microsecond = 0)
+        dta = self.get_accessed_time() - utcnow
+        return str(dta)
+
 
 class Connection(models.Model):
     name = models.CharField(max_length=150, default='setme')
     project = models.ForeignKey(Project, null=True, blank=True, on_delete=models.SET_NULL)
     attrsgroup = models.ForeignKey('sites.AttributeGroup', null=True, blank=True, on_delete=models.CASCADE, related_name='sites_Connection_attrsgroup')
     uniqueuser = models.ForeignKey('sites.Uniqueuser', null=True, blank=True, on_delete=models.CASCADE, related_name='sites_Connection_uniqueuser', verbose_name='Unique User')
-    token = models.ForeignKey(AuthToken, null=True, blank=True, on_delete=models.CASCADE)
+    token = models.ForeignKey(AuthToken, null=True, blank=True, on_delete=models.SET_NULL)
     connection_state = models.CharField(max_length=50, null=True, default='setme', help_text=mark_safe(settings.HELP_CONNECTION_STATE))
     created = models.DateTimeField(auto_now_add=True)
     loggedout = models.DateTimeField(default=now)
@@ -1134,6 +1321,9 @@ class Connection(models.Model):
         super(Connection, self).save(*args, **kwargs)
         if self.initstate():
             super(Connection, self).save(*args, **kwargs)
+
+    def get_token(self):
+            return str(self.token)
 
     def get_projectname(self):
             return str(self.project)
@@ -1407,6 +1597,7 @@ class Organization(models.Model):
             if str(k) == 'updated':
                 v = str(v)
             retlist.append((k,v))
+        retlist.append(("Projects", self.current_projects()))
         return retlist
 
     def users(self):
@@ -1508,6 +1699,9 @@ class GraphNode(models.Model):
     def __str__(self):
         return str(self.name)
 
+    def get_fields(self):
+        return [(field.name, getattr(self,field.name)) for field in GraphNode._meta.fields]
+
     def nid(self):
         return str(self.nodeid)
 
@@ -1538,6 +1732,9 @@ class NodeType(models.Model):
 
     def __str__(self):
         return str(self.type)
+
+    def get_fields(self):
+        return [(field.name, getattr(self,field.name)) for field in NodeType._meta.fields]
 
     def get_options(self):
         return str(self.options)
@@ -1587,19 +1784,25 @@ class Browser(models.Model):
 
 
 class Key(models.Model):
-    name = models.CharField(max_length=150, default='setme')
+    name = models.CharField(max_length=150, default='setme', help_text=mark_safe(settings.HELP_DECRYPT_KEY_NAME))
     decrypt_key = models.CharField(default='setme', max_length=200, verbose_name='Decryption key', help_text=mark_safe(settings.HELP_DECRYPT_KEY))
 
     def __str__(self):
         return self.name
+
+    def get_fields(self):
+        return [(field.name, getattr(self,field.name)) for field in Key._meta.fields]
 
     def get_key(self):
         return self.decrypt_key
 
     def initstate(self):
         need_to_save = False
-        if len(self.name) < int(6):
+        if 'setme' in str(self.name):
             self.name = secrets.token_urlsafe(10)
+            need_to_save = True
+        #if len(self.decrypt_key) < int(6):
+        if 'setme' in str(self.decrypt_key):
             self.decrypt_key = Fernet.generate_key().decode()
             need_to_save = True
         return need_to_save
@@ -1692,6 +1895,21 @@ class Sysadmin(models.Model):
         return orgids
 
 
+class SSOObj(models.Model):
+    ssostr = models.CharField(max_length=300, default='no-ssostr', help_text=mark_safe(settings.HELP_SSOSTR))
+    email = models.EmailField(unique=True, null=True, blank=settings.NONE_EMAIL)
+    icamattrs = models.TextField(max_length=8192, null=True, verbose_name="ICAM Attributes", default='{}', help_text=mark_safe(settings.HELP_ICAM_ATTRIBUTES))
+    class Meta:
+        verbose_name = 'SSO Object'
+
+    def __str__(self):
+        return str(self.email) 
+
+    def get_email(self):
+        return str(self.email) 
+
+    def get_icamattrs(self):
+        return self.icamattrs
 
 @receiver(user_has_authenticated)
 def post_auth_user_has_authenticated(sender, **kwargs):
@@ -1778,7 +1996,7 @@ def user_has_authenticated_sendemail(**kwargs):
         fromaddr = settings.EMAIL_HOST_USER
         toaddr = [email]
         try:
-            if settings.DEBUG:
+            if settings.DEBUG_VERBOSE:
                 msg = "DEBUG -- running: send_mail(subject, body, fromaddr, toaddr, fail_silently=False)"
                 msg = msg + ' -- toaddr: ' + str(toaddr)
                 msg = msg + ' -- fromaddr: ' + str(fromaddr)
@@ -1799,6 +2017,9 @@ class Room(models.Model):
 
     def __str__(self):
         return self.number
+
+    def get_fields(self):
+        return [(field.name, getattr(self,field.name)) for field in Room._meta.fields]
 
     def fullname(self):
         return self.number + ' (' + self.name + ')'
@@ -1846,6 +2067,7 @@ def send_removal_notice_email(kwargs):
                 projects[str(p)]['owner'] = str(p.owner)
     project_list = []
     project_names = []
+    bcc = []
     for k in projects.keys():
         project_names.append(str(k))
     if len(project_names) > int(1):
@@ -1853,10 +2075,9 @@ def send_removal_notice_email(kwargs):
     info = '\n'
     for n in project_names:
         info = info + '    ' + str(n) + " at " + str(projects[n]['link']) + ' owned by ' + str(projects[n]['owner']) + '\n'
+        bcc.append(str(projects[n]['owner']))
     project_list = info 
-    #removed_in_dtdelta = str(settings.CONTACT_RENEWAL_PERIOD_TIMEDELTA).split('.')[0]
-    #if ',' in removed_in_dtdelta:
-    #    removed_in_dtdelta = removed_in_dtdelta.replace(', 0:00:00', '')
+
     renewal_link = settings.EXTERNAL_URL + 'sites/renew/' + str(renewal_token)
     remove_account_link = settings.EXTERNAL_URL + 'sites/remove/' + str(renewal_token)
 
@@ -1878,7 +2099,7 @@ def send_removal_notice_email(kwargs):
         SEND_EMAIL = False
         if settings.DEBUG:
             if str(email) in str(settings.EMAIL_TEST_USERS):
-                #msg = "    send_mail(subject, body, fromaddr, toaddr, fail_silently=False)"
+                #msg = "    send_mail(subject, body, fromaddr, toaddr, bcc=bcc, fail_silently=False)"
                 #msg = msg + ' -- toaddr: ' + str(toaddr)
                 #msg = msg + ' -- fromaddr: ' + str(fromaddr)
                 #msg = msg + ' -- subject: ' + str(subject)
@@ -1887,16 +2108,18 @@ def send_removal_notice_email(kwargs):
                 SEND_EMAIL = True 
        
         if SEND_EMAIL:
-            send_mail(subject, body, fromaddr, toaddr, fail_silently=False)
+            emailmessage = EmailMessage(subject, body, fromaddr, toaddr, bcc)
+            emailmessage.send(fail_silently=False)
+            #send_mail(subject, body, fromaddr, toaddr, bcc=bcc, fail_silently=False)
             #msg = '           renewal_link: ' + str(renewal_link)
             #logger.info(msg)
             #msg = '           remove_account_link: ' + str(remove_account_link)
             #logger.info(msg)
         #else:
-        #    msg = "DEBUG -- NOT running: send_mail(subject, 'BODY', fromaddr, toaddr, fail_silently=False)"
+        #    msg = "DEBUG -- NOT running: send_mail(subject, 'BODY', fromaddr, toaddr, bcc=bcc, fail_silently=False)"
         #    logger.info(msg)
     except Exception as e:
         now = datetime.datetime.utcnow()
-        msg = str(now) + ":User has logged in email failed:" + str(email) + ":send_notice_email:" + str(e)
+        msg = str(now) + ":send_removal_notice_email failed for:" + str(email) + ":" + str(e)
         logger.info(msg)
 

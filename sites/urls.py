@@ -17,7 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
-from sites.views import bogus_target, getattrs, index, project_ldg, showattrs, attrsjwt, demoapp_python, demoapp_authorization, oops, connections_by_project, generate_urlsafe_token, generate_fernet_key, pubcert, project_userlist, at2uu, get_cwd, get_did, renew_access, remove_access
+from sites.views import bogus_target, getattrs, index, project_ldg, showattrs, attrsjwt, demoapp_python, demoapp_authorization, webpages_auth, oops, connections_by_project, generate_urlsafe_token, generate_fernet_key, pubcert, project_userlist, at2uu, get_cwd, get_did, renew_access, remove_access
 
 app_name = 'sites'
 

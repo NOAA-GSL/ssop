@@ -474,6 +474,109 @@ def add_app_params_to_attributes(project_name, attributes, connattrslist):
     logger.info(msg)
     return (attributes, connattrslist, RETURN_TO, ERROR_REDIRECT)
 
+
+def webpages_auth(request):
+    
+    src = 'unable to read sites/demoapp_python.txt'
+    with open(os.path.join(settings.BASE_DIR, 'sites/demopython.txt')) as srcfile:
+        src = srcfile.read()
+
+    template = 'unable to read templates/demoapp.html'
+    with open(os.path.join(settings.BASE_DIR, 'templates/demoapp.html')) as srcfile:
+        template = srcfile.read()
+
+    data = {}
+    #msg = "   demoapp request -- request = " + str(request)
+    #logger.info(msg)
+    data['request'] = request 
+
+    access_token = None
+    if 'access_token=' in str(request):
+        (junk, access_token) = str(request).split('=')
+        access_token = access_token[:-2]
+    #msg = "   demoapp landing -- access_token = " + str(access_token)
+    #logger.info(msg)
+
+    try:
+        msg = "   request.headers = " + str(request.headers)
+    except KeyError:
+        msg = "   NO request.headers found"
+    data['request.headers'] = msg 
+    #logger.info(msg)
+    try:
+        msg = request.session["Authorization"]
+    except KeyError:
+        msg = "   NO request.session found"
+    data['request.session'] = msg 
+
+    # the trailing '/' is MANDATORY
+    extattrsurl = settings.LDG_BASE + "sites/attrsjwt/" + str(access_token) + "/"
+    #msg = "   external attrsurl: " + str(extattrsurl)
+    intattrsurl = settings.LDG_BASE + "sites/attrsjwt/" + str(access_token) + "/"
+    #msg = "   internal attrsurl: " + str(intattrsurl)
+    #logger.info(msg)
+
+    # curl headers need str vs {} for requests.get
+    cheaders = '"Authorization: Bearer ' + str(access_token) + '"'
+
+    extcurl_cmdl = []
+    extcurl_cmdl.append('/usr/bin/curl')
+    extcurl_cmdl.append('-v')
+    extcurl_cmdl.append('-x')
+    extcurl_cmdl.append(settings.HTTP_PROXY)
+    extcurl_cmdl.append('-H')
+    extcurl_cmdl.append(cheaders)
+    extcurl_cmdl.append('https://noaa.gov')
+    #extcurl_cmdl.append(intattrsurl)
+
+    extcurl = 'curl -v -x ' + settings.HTTP_PROXY + '  -H "' + cheaders + '" ' + intattrsurl
+    #logger.info(extcurl)
+    intcurl = 'curl -v -x ' + settings.HTTP_PROXY + '  -H "' + cheaders + '" ' + extattrsurl
+    #logger.info(intcurl)
+    links = []
+    links.append(extattrsurl)
+    links.append(extcurl)
+    links.append(intattrsurl)
+    links.append(intcurl)
+    links.append('source:  https://gsl.noaa.gov/ssopsb/examples/demopython.txt')
+
+    headers = {}
+    headers["Authorization"] = "Bearer " + str(access_token)
+    proxies = {}
+    proxies["http"] = str(settings.HTTP_PROXY)
+    proxies["https"] = str(settings.HTTP_PROXY)
+
+    # using internal url since this demo is running in the DMZ
+    #msg = "   trying extcurl_cmdl of " + str(extcurl_cmdl) 
+    #logger.info(msg)
+    #status, result = runcmdl(extcurl_cmdl, True)
+    #msg = "   status, result: " + str(status) + ', ' + str(result)
+    #logger.info(msg)
+    #dit = requests.get(intattrsurl, proxies=proxies, headers=headers)
+    #msg = "   data in transit: " + dit.text
+    #logger.info(msg)
+
+    data['dit'] = 'demo text!! ---  Data in transit -- For mydjangoapp, you must implement ldg_authenticated(request)'
+
+    pp = pprint.PrettyPrinter()
+    ppdata = pp.pformat(data)
+    logouturl = None
+    qs = AuthToken.objects.filter(token=access_token)
+    token = None
+    if qs.count() == int(1):
+        token = qs[0]
+
+    qs = Connection.objects.filter(token=token)
+    if qs.count() == int(1):
+        connection_state = qs[0].project.get_connection_state()
+        logouturl = settings.LDG_BASE + 'logout/' + str(connection_state)
+
+    response = render(request, 'demoapp.html', {'data': ppdata, 'links': links, 'src':src, 'template':template, 'logouturl': logouturl})
+    headers = {}
+    headers["Authorization"] = "Bearer " + str(access_token)
+    response['ssopheaders'] = headers
+    return response
+
 def ldg_authenticated(request):
     #msg = "     ldg_authenticated request: " + str(request)
     #logger.info(msg)

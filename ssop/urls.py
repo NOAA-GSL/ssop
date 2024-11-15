@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import include, path
 #from django.contrib.sitemaps.views import sitemap
 
-from sites.views import (index, icam, icam_authenticated, ldg, ldg_authenticated, logout, ldg_auth_error, oops, demoapp_python, demoapp_authorization, attrs, metadata, pubcert, pubcertol)
+from sites.views import (index, icam, icam_authenticated, ldg, webpages_auth, ldg_authenticated, logout, ldg_auth_error, oops, demoapp_python, demoapp_authorization, attrs, metadata, pubcert, pubcertol)
 
 #urlpatterns = [
 #    path('admin/', admin.site.urls),
@@ -33,12 +33,14 @@ urlpatterns = [
     path('icam/<str:project_name>/', icam, name='icam'),
     path('icam_authenticated/', icam_authenticated, name='icam_authenticated'),
     path('icam_authenticated/<str:project_name>/', icam_authenticated, name='icam_authenticated'),
+    path('webpages_auth/', webpages_auth, name='webpages_auth'),
     path('logout/', logout, name='logout'),
     path('logout/<str:connection_state>/', logout, name='logout'),
     path('ssopsb/', include(('sites.urls', 'sites'), namespace='ssopsb')),
     path('ssopsb/sites/', include(('sites.urls', 'sites'), namespace='ssopsb')),
     path('ssopsb/ldg_auth_error', ldg_auth_error, name='ssopsb_ldg_auth_error'),
     path('ssopsb/oops/', oops, name='ssopsb_oops'),
+    path('ssopsb/webpages_auth/', webpages_auth, name='ssopsb_webpages_auth'),
     path('ssopsb/demopy', demoapp_python, name='ssopsb_demoapp_python'),
     path('ssopsb/demohdr', demoapp_authorization, name='ssopsb_demohdr'),
     path('ssopsb/ldg_authenticated', ldg_authenticated, name='ssopsb_ldg_authenticated'),

@@ -1,87 +1,3 @@
-python3 manage.py makemigrations
-python3 manage.py migrate
-vi sites/forms.py 
-vi sites/models.py 
-python3 manage.py makemigrations
-python3 manage.py migrate
-ls
-vi sites/admin.py 
-grep querydelimite sites/models.py 
-ls
-cd sites/
-ls
-vi forms.py 
-vi sites/models.py 
-vi models.py 
-cd ..
-python3 manage.py makemigrations
-python3 manage.py migrate
-vi sites/admin.py 
-vi sites/models.py 
-ls
-cd sites/
-ls
-vi forms.py 
-ls
-diff models.py /opt/releases/green/ssop-0.9.5/sites/models.py 
-diff admin.py /opt/releases/green/ssop-0.9.5/sites/admin.py 
-ls
-vi admin.py 
-view models.py 
-grep userlist *
-ls
-vi admin.py 
-vi models.py 
-grep userlist *
-vi admin.py 
-vi forms.py 
-vi models.py 
-cd ..
-ls
-grep -i userlist *
-grep -i userlist */*
-grep -i userlist */*/*
-grep -i userlist */*/*/*
-grep -i userlist */*/*/*/*
-pwd
-ls
-grep -i userlist *
-grep -i userlist */*
-vi sites/forms.py 
-ls
-cd sites/
-ls
-diff forms.py ../../ssop-0.9.5/sites/forms.py 
-vi forms.py 
-diff forms.py ../../ssop-0.9.5/sites/forms.py 
-vi forms.py 
-diff forms.py ../../ssop-0.9.5/sites/forms.py 
-vi forms.py 
-diff forms.py ../../ssop-0.9.5/sites/forms.py 
-vi forms.py 
-diff forms.py ../../ssop-0.9.5/sites/forms.py 
-ls
-pwd
-ls
-diff admin.py ../../ssop-0.9.5/sites/admin.py 
-vi admin.py 
-diff admin.py ../../ssop-0.9.5/sites/admin.py 
-ls
-diff apps.py ../../ssop-0.9.5/sites/apps.py 
-diff forms.py ../../ssop-0.9.5/sites/forms.py 
-diff models.py ../../ssop-0.9.5/sites/models.py 
-diff views.py ../../ssop-0.9.5/sites/views.py 
-ls
-grep userlist *
-vi forms.py 
-vi models.py 
-view /var/log/messages
-vi forms.py 
-ls
-diff forms.py ../../ssop-0.9.5/sites/forms.py 
-ls
-diff models.py ../../ssop-0.9.5/sites/models.py 
-ls
 cd ..
 ls
 python3 manage.py makemigrations sites
@@ -998,3 +914,87 @@ ls
 cd ssop
 ls
 vi settings.py 
+ls
+pip
+source venv/bin/activate
+ls
+cd green
+ls
+cd ssop
+ls
+cd ..
+ls
+cd ..
+ls
+source venv/bin/activate
+cd venv/
+ls
+ls -la
+cd ..
+ls
+pwd
+exit
+ls
+source venv/bin/en
+source activate
+source venv/bin/activate
+cd green
+ls
+cd ..
+ls
+cd blue
+ls
+cd ssop
+ls
+source venv/bin/activate
+pip
+ls
+exit
+ls
+cd green
+ls
+cd ssop
+ls
+source venv/bin/activate
+ls
+ls -la
+cd ssop
+ls
+cd ..
+ls
+git status
+cd ..
+ls
+cd ..
+ls
+cd ..
+ls
+pwd
+git status
+cd ssop
+git status
+ls
+cat dump_blue/
+cd dump_blue/
+ls
+ls -la
+cd ..
+ls
+cd dump_green/
+ls
+ls -la
+cat ssop
+ls
+ls -la
+cd ..
+ls
+cd dump_blue/
+ls
+ls -la
+cat ssop
+ls
+cd ..
+ls
+ls -la
+pip cache purge
+exit

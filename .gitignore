@@ -56,6 +56,13 @@ coverage.xml
 
 .bashhistory
 .bashrc
+
+BESClient/
+fireeye/
+saltstack/
+tivoli/
+
+
 # Sphinx documentation
 docs/_build/
 Share

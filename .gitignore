@@ -55,10 +55,11 @@ coverage.xml
 *.pot
 
 .bashhistory
-
+.bashrc
 # Sphinx documentation
 docs/_build/
 Share
 Improve this answer
 Follow
 edited Jan 24, 2014 a
+

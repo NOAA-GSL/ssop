@@ -19,6 +19,12 @@ export PATH
 alias pip='pip3 --proxy http://rhsm-proxy.gsd.esrl.noaa.gov:3128'
 alias rm-pycache='find . -type d -name  "__pycache__" -exec rm -r {} +'
 
+<<<<<<< HEAD
 source /opt/ssop/venv/bin/activate
 VIRTUAL_ENV=/opt/ssop/venv
 SSOP_DEPLOY_ENV='Development'
+=======
+source /opt/releases/green/ssop/venv/bin/activate
+VIRTUAL_ENV=/opt/releases/green/ssop/venv
+SSOP_DEPLOY_ENV='Production'
+>>>>>>> prod/master

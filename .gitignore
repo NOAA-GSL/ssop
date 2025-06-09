@@ -54,6 +54,12 @@ coverage.xml
 *.log
 *.pot
 
+<<<<<<< HEAD
+=======
+.bashhistory
+.bashrc
+
+>>>>>>> prod/master
 # Sphinx documentation
 docs/_build/
 Share

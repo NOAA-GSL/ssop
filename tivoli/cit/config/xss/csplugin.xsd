@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed Materials - Property of IBM
+    TIVOCIT00
+    Copyright IBM Corp. 2005. All Rights Reserved.
+    US Government Users Restricted Rights - Use, duplication or
+    disclosure restricted by GSA ADP Schedule contract with
+    IBM Corp. -->
+<xs:schema xmlns="http://www.ibm.com/Tivoli/Signatures" xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.ibm.com/Tivoli/Signatures" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xs:include schemaLocation="expressions.xsd"/>
+	<xs:element name="CustomScanList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="command" type="xs:string" use="required"/>
+					<xs:attribute name="class" type="xs:string" use="required"/>
+					<xs:attribute name="output" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="CustomScanInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="command" type="xs:string" use="required"/>
+					<xs:attribute name="class" type="xs:string" use="required"/>
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" type="xs:string" use="required"/>
+                    <xs:attribute name="output" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="CustomScanExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="command" type="xs:string" use="required"/>
+					<xs:attribute name="class" type="xs:string" use="required"/>
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="output" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="RunCommand" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="path" type="xs:string" use="required"/>
+                    <xs:attribute name="trim" type="xs:boolean" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="RunCommandEx" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="path" type="xs:string" use="required"/>
+                    <xs:attribute name="trim" type="xs:boolean" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

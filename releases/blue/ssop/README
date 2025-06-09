@@ -1,0 +1,92 @@
+Welcome to ssop, a Single Sign On Portal which uses login.gov as an Identity Verification provider.
+
+1) Clone ssop repo
+2) Change directory ssop
+3) Create a virtual environment named venv:  python3.8 -m venv venv 
+   NOTE: Python 3.6 not being supported WRT crypto -- no point in staring at 3.7
+4) Upgrade pip to latest and then pip install -r requirements.txt
+
+5) If needed, use https://developers.login.gov to establish a sandbox environment, create a team (yourself and collaborators if desired), then create and app.
+6) Update LOGINDOTGOV_ related parameters in ssop/settings.py with results from 5 or from a configuration management system (CMS).
+7) Update JWT_ related parameters as needed or from a CMS.
+
+See the images in the screenshot folder to aid with LOGINDOTGOV settings.  Also, a final user attributes screen can be seen.
+
+Files in etc/nginx and etc/systemd/system demonstrate a full webserver with backend a WSGI using gunicorn and unix sockets.
+   ALWAYS after editing a file in etc/systemd/system:
+      sudo systemctl daemon-reload
+
+   Once configured enable the services:
+      sudo systemctl enable ssop_gunicorn.socket
+      sudo systemctl enable ssop_gunicorn.service
+
+   And start them:
+      sudo systemctl start ssop_gunicorn.socket
+      sudo systemctl start ssop_gunicorn.service
+
+   After any python code changes
+      sudo systemctl restart ssop_gunicorn.service
+
+   The SELinux section is very applicable during this phase
+
+It works best to use an incognito window.  Otherwise the only way to truly logout is close the browser.  Using an incognito windows allows for a fresh session for each login test.
+
+Only tested with Chrome.
+
+-------------------------------------------
+
+Notes on fetching attributes   [Michael Ambroselli (Login.gov) Nov 1, 2022, 13:22 EDT]
+RE: https://developers.login.gov/oidc/#ial-values
+
+   In order to receive identity-verified attributes, you will need to pass in the corresponding acr_value (http://idmanagement.gov/ns/assurance/ial/2) along with the requested scope values. Please let me know if this doesn't fix your issue.
+
+   iss is not a requestable user attribute, which is why it is not included on the User Attributes page. It is automatically included in the response and refers to the issuer of the response (which is Login.gov's IdP).
+
+--------------------------------------------
+
+SELinux commands useful during debugging:
+
+   # Deal with SELinux complaints
+   sudo view /var/log/audit/audit.log   (or sudo tail -f /var/log/audit/audit.log and clear between test sessions)
+      - look for 'denied' or 'failures'
+      - write result to testN.txt where N = 1, 2, ...
+
+   Create testN.te and testN.pp files for the Nth case:
+      cat testN.txt | audit2all -a -M testN
+      cat testN.te to see what SELinux flagged 
+      Apply the file:
+         sudo semodule -i testN.pp
+
+   I like to restart the gunicorn.service at this point, but probably not needed.
+
+   Clear any windows running tail -f log....
+
+   Loop to top of the view audit.log and capture next error .... :-)
+
+   # Other useful tails
+   sudo tail -v /var/log/nginx/access.log
+   sudo tail -v /var/log/nginx/error.log
+   sudo tail -v /var/log/gunicorn/access.log
+   sudo tail -v /var/log/gunixorn/error.log
+   tail -v /var/log/messages
+
+SELINUX content and user types:
+   # For the venv
+   sudo chcon -R -t httpd_sys_content_t venv/
+   sudo chcon -t httpd_sys_script_exec_t venv/bin/gunicorn
+
+   # For the entire site
+   sudo chcon -R -u system_u some-nologin-user
+   sudo chcon -R -t httpd_sys_content_t some-nologin-user
+   sudo chcon -R -u system_u /var/log/gunicorn/
+
+   # While in in venv/lib/python3.8/site-packages
+   sudo chcon -t httpd_sys_script_exec_t _openssl.abi3.so _rust.abi3.so _cffi_backend.cpython-38-x86_64-linux-gnu.so 
+
+   # Logging
+   sudo chcon -t httpd_log_t /path_to/logs/ssop/django_*
+
+----------------------------------------------
+
+Kirk Holub
+kirk.l.holub@noaa.gov

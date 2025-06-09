@@ -1,0 +1,29 @@
+{% extends "base_site.html" %}
+% load server_url %}
+
+{% block content %}
+
+  {% if attributes %}
+    <p>Your LoginDotGov user attributes are:</p>
+    <table class="table table-striped">
+      <thead>
+        <th>Key</th><th>Value</th>
+      </thead>
+      <tbody>
+        {% for attr in attributes %}
+          <tr><td>{{ attr.0 }}</td>
+          <td><ul class="list-unstyled">
+              <li>{{ attr.1 }}</li>
+          </ul></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="alert alert-danger" role="alert">You don't have any attributes</div>
+  {% endif %}
+
+  {% if logouturl %} 
+      <a href="{{ logouturl }}" class="btn">Logout</a>
+  {% endif %}
+
+{% endblock %}

@@ -1,0 +1,29 @@
+[Unit]
+Description=Single Sign On Portal user account managment service 
+After=network.target
+StartLimitIntervalSec=30
+StartLimitBurst=2
+
+[Service]
+Type=exec
+
+# the specific user that our service will run as
+User=authroleuser
+Group=authrolegroup
+
+# another option for an even more restricted service is
+# DynamicUser=yes
+# see http://0pointer.net/blog/dynamic-users-with-systemd.html
+WorkingDirectory=/opt/ssop
+
+ExecStart=/opt/ssop/venv/bin/python3 /opt/ssop/manage.py review_contacts
+Restart=on-failure
+ExecReload=kill -HUP $MAINPID
+
+# Redirect stdout/stderr to log file
+capture_output = True
+
+[Install]
+WantedBy=multi-user.target
+
+

@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed Materials - Property of IBM
+    TIVOCIT00
+    Copyright IBM Corp. 2005. All Rights Reserved.
+    US Government Users Restricted Rights - Use, duplication or
+    disclosure restricted by GSA ADP Schedule contract with
+    IBM Corp. -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.ibm.com/Tivoli/Signatures" targetNamespace="http://www.ibm.com/Tivoli/Signatures" elementFormDefault="qualified" attributeFormDefault="unqualified" version="9.2.32.0000">
+	<xs:include schemaLocation="expressions.xsd"/>
+	<xs:include schemaLocation="xss_plugins.xsd"/>
+	<xs:element name="Signatures">
+		<xs:annotation>
+			<xs:documentation>Signatures catalogue.</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="Variable" minOccurs="0" maxOccurs="unbounded"/>
+				<xs:group ref="ContentChoice" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute name="version" type="xs:string" use="required"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="Signature" type="SignatureContent">
+		<xs:annotation>
+			<xs:documentation>Any individually identifiable software component. Signatures may be nested. No assuption is made about the software component capability to exist by itself.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="Variable">
+		<xs:annotation>
+			<xs:documentation>A string value which is resolved at runtime. The variable scope is either global (when defined outside a Signature tag) or the signature where it is defined and all its nested signatures (unless overridden).</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="ScalarExpressionContainer">
+					<xs:attribute name="name" type="xs:string" use="required"/>
+					<xs:attribute name="export" type="xs:boolean" use="optional" default="true"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:complexType name="ScalarExpressionContainer">
+		<xs:group ref="ScalarExpression"/>
+	</xs:complexType>
+	<xs:complexType name="VectorExpressionContainer">
+		<xs:group ref="VectorExpression"/>
+	</xs:complexType>
+	<xs:group name="StatementGroup">
+		<xs:choice>
+			<xs:element ref="Variable"/>
+			<xs:element name="Condition">
+				<xs:annotation>
+					<xs:documentation>Declares an action to be performed when a specific condition is verified. Specifically tests are evaluated on variables values.</xs:documentation>
+				</xs:annotation>
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Action" type="TestAction" maxOccurs="unbounded">
+							<xs:annotation>
+								<xs:documentation>An action is performed if the tested variable value matches a condition. Multiple actions can be defined for the same variable by testing different conditions.</xs:documentation>
+							</xs:annotation>
+						</xs:element>
+					</xs:sequence>
+					<xs:attribute name="withVariable" type="xs:string" use="required"/>
+				</xs:complexType>
+			</xs:element>
+		</xs:choice>
+	</xs:group>
+	<xs:complexType name="TestAction">
+		<xs:attribute name="onValue" type="xs:string" use="required"/>
+		<xs:attribute name="do" use="required">
+			<xs:simpleType>
+				<xs:restriction base="xs:string">
+					<xs:enumeration value="SKIP"/>
+				</xs:restriction>
+			</xs:simpleType>
+		</xs:attribute>
+	</xs:complexType>
+	<xs:group name="ContentGroup">
+		<xs:sequence>
+			<xs:group ref="StatementGroup" minOccurs="0" maxOccurs="unbounded"/>
+			<xs:group ref="ContentChoice" minOccurs="0" maxOccurs="unbounded"/>
+			<xs:element name="MultipleInstance" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Enables the discovery of multiple instances of the same resource.</xs:documentation>
+				</xs:annotation>
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Iterator">
+							<xs:annotation>
+								<xs:documentation>The iterator tag contains a vector expression. Each string in the vector must uniquely identify an installed resource instance.</xs:documentation>
+							</xs:annotation>
+							<xs:complexType>
+								<xs:complexContent>
+									<xs:extension base="VectorExpressionContainer">
+										<xs:attribute name="name" type="xs:string" use="required"/>
+										<xs:attribute name="export" type="xs:boolean" use="optional" default="true"/>
+									</xs:extension>
+								</xs:complexContent>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="Instance">
+							<xs:annotation>
+								<xs:documentation>Contains the variables and tests to be evaluated for each value of the iterator. Any iterator value may potentially lead to the discovery of a resource instance.</xs:documentation>
+							</xs:annotation>
+							<xs:complexType>
+								<xs:sequence>
+									<xs:group ref="ContentGroup" minOccurs="0" maxOccurs="unbounded"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:group>
+	<xs:element name="SignatureGroup">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="SignatureGroupContent"/>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:group name="ContentChoice">
+		<xs:choice>
+			<xs:element ref="Signature"/>
+			<xs:element ref="SignatureGroup"/>
+		</xs:choice>
+	</xs:group>
+	<xs:complexType name="SignatureContent">
+		<xs:sequence>
+			<xs:element name="Metadata" minOccurs="0">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:any processContents="skip" minOccurs="0" maxOccurs="unbounded"/>
+					</xs:sequence>
+					<xs:anyAttribute processContents="skip"/>
+				</xs:complexType>
+			</xs:element>
+			<xs:element name="Platforms" minOccurs="0">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Platform" type="PlatformType" maxOccurs="unbounded"/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+			<xs:group ref="ContentGroup"/>
+		</xs:sequence>
+		<xs:attribute name="guid" type="xs:string" use="required"/>
+		<xs:attribute name="name" type="xs:string" use="optional"/>
+		<xs:attribute name="type" type="xs:string" use="optional"/>
+	</xs:complexType>
+	<xs:complexType name="SignatureGroupContent">
+		<xs:sequence>
+			<xs:element name="Metadata" minOccurs="0">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:any processContents="skip" minOccurs="0" maxOccurs="unbounded"/>
+					</xs:sequence>
+					<xs:anyAttribute />
+				</xs:complexType>
+			</xs:element>
+			<xs:element name="Platforms" minOccurs="0">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Platform" type="PlatformType" maxOccurs="unbounded"/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+			<xs:group ref="ContentGroup"/>
+		</xs:sequence>
+		<xs:attribute name="guid" type="xs:string" use="required"/>
+		<xs:attribute name="name" type="xs:string" use="optional"/>
+	</xs:complexType>
+	<xs:complexType name="PlatformType">
+		<xs:attribute name="type" use="required">
+			<xs:simpleType>
+				<xs:restriction base="xs:string">
+					<xs:enumeration value="WINDOWS"/>
+					<xs:enumeration value="LINUX"/>
+					<xs:enumeration value="AIX"/>
+					<xs:enumeration value="SOLARIS"/>
+					<xs:enumeration value="HPUX"/>
+					<xs:enumeration value="I5OS"/>
+					<xs:enumeration value="OS400"/>
+					<xs:enumeration value="MAC_OS"/>
+					<xs:enumeration value="S390"/>
+				</xs:restriction>
+			</xs:simpleType>
+		</xs:attribute>
+	</xs:complexType>
+</xs:schema>

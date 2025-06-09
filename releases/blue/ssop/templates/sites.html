@@ -1,0 +1,29 @@
+{% extends "base_site.html" %}
+% load server_url %}
+
+{% block content %}
+  {% if error_msg %}
+     {{ error_msg }}
+  {% endif %}
+
+  {% if attributes %}
+    <table class="table table-striped">
+      <tbody>
+        {% for attr in attributes %}
+          <tr>
+          <td><ul>
+              <li><a href="{{attr.1}}"><img class="logo" src="{{attr.3}}"><hr>{{ attr.2 }}</a></li>
+          </ul></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="alert alert-danger" role="alert">You don't have any attributes</div>
+  {% endif %}
+
+  {% if logouturl %} 
+      <a href="{{ logouturl }}" class="btn btn-danger">Logout</a>
+  {% endif %}
+
+{% endblock %}

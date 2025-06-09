@@ -1,0 +1,80 @@
+# This is the Django view which produced the Data and Links above, plus this Source your currently are reading, using the Template below. 
+# Seems recusive in some way.
+
+import os
+import requests
+import pprint
+
+#import logging
+#logger = logging.getLogger('ssop.models')
+
+from ssop import settings
+from django.http import HttpResponseRedirect
+from django.shortcuts import render
+
+def demoapp_landing(request, access_token = None):
+
+    # This is not the EXACT code running -- its been cleaned up a bit
+    src = 'unable to read sites/demoapp_landing.txt'
+    with open(os.path.join(settings.BASE_DIR, 'sites/demoapp_landing.txt')) as srcfile:
+        src = srcfile.read()
+
+    template = 'unable to read templates/demoapp.html'
+    with open(os.path.join(settings.BASE_DIR, 'templates/demoapp.html')) as srcfile:
+        template = srcfile.read()
+
+    # our primary return structure
+    data = {}
+    data['request'] = request
+    data['access_token'] = str(access_token)
+    try:
+        msg = "   request.headers = " + str(request.headers)
+    except KeyError:
+        msg = "   NO request.headers found"
+    data['request.headers'] = msg
+
+
+    # the trailing '/' is MANDATORY
+    extattrsurl = "https://gsl.noaa.gov/ssop/sites/attrsjwt/" + str(access_token) + "/"
+    intattrsurl = "https://gsl-webstage8.gsd.esrl.noaa.gov/ssop/sites/attrsjwt/" + str(access_token) + "/"
+
+    # curl headers need str vs {} for requests.get
+    cheaders = "Authorization: Bearer " + str(access_token)
+    extcurl = 'curl -v -x ' + settings.HTTP_PROXY + '  -H "' + cheaders + '" ' + intattrsurl
+    intcurl = 'curl -v -x ' + settings.HTTP_PROXY + '  -H "' + cheaders + '" ' + extattrsurl
+
+    links = []
+    links.append(intattrsurl)
+    links.append(extattrsurl)
+    links.append(intcurl)
+    links.append(extcurl)
+
+    headers = {}
+    headers["Authorization"] = "Bearer " + str(access_token)
+    proxies = {}
+    proxies["http"] = str(settings.HTTP_PROXY)
+    proxies["https"] = str(settings.HTTP_PROXY)
+
+    # using internal url since this demo is running in the DMZ
+    #msg = "   trying request.get of " + intattrsurl
+    #logger.info(msg)
+    #dit = requests.get(intattrsurl, proxies=proxies, headers=headers)
+    #msg = "   data in transit: " + dit.text
+    #logger.info(msg)
+    data['dit'] = 'demo text!! ---  dit.text -- for now until I figure out what is blocking this....!'
+
+    # not finishing due to DMZ issue -- but this should be a good start
+    # dit -- data in transit is a payload within the json web token (jwt.io)
+    #decode_key = connection.project.get_decode_key()
+    #dar = Fernet(decode_key)
+    #dit = bytes_in_string(attributes[0][1])
+
+    # This will be all of user attributes in clear text
+    #decrypteddata = dar.decrypt(dit).decode()
+    #data['cleardata'] = decrypteddata
+
+    pp = pprint.PrettyPrinter()
+    ppdata = pp.pformat(data)
+
+    return render(request, 'demoapp.html', {'data': ppdata, 'links': links, 'src': src, 'template': template})
+

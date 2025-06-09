@@ -1,0 +1,940 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed Materials - Property of IBM
+    TIVOCIT00
+    Copyright IBM Corp. 2005. All Rights Reserved.
+    US Government Users Restricted Rights - Use, duplication or
+    disclosure restricted by GSA ADP Schedule contract with
+    IBM Corp. -->
+<xs:schema targetNamespace="http://www.ibm.com/Tivoli/Signatures" xmlns="http://www.ibm.com/Tivoli/Signatures" xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xs:include schemaLocation="expressions.xsd"/>
+	<xs:element name="MsiProductList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="MsiProductExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="MsiProductInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="version"/>
+								<xs:enumeration value="vendor"/>
+								<xs:enumeration value="installDir"/>
+								<xs:enumeration value="installDate"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="Win32AppPathList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="Win32AppPathExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="Win32AppPathInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="Win32ProgramList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="Win32ProgramExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="Win32ProgramInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="Win32PatchList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="Win32PatchExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="Win32PatchInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="IsmpProductList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="IsmpProductExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="IsmpProductInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="version"/>
+								<xs:enumeration value="vendor"/>
+								<xs:enumeration value="installDir"/>
+								<xs:enumeration value="description"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="PackageInfoEqual" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="provider" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="any"/>
+								<xs:enumeration value="ismp"/>
+								<xs:enumeration value="os"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="value" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="VoidProductList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="VoidProductExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType"/>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="VoidProductInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType"/>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="RpmProductList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="RpmProductExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="RpmProductInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="version"/>
+								<xs:enumeration value="displayVersion"/>
+								<xs:enumeration value="vendor"/>
+								<xs:enumeration value="release"/>
+								<xs:enumeration value="arch"/>
+								<xs:enumeration value="description"/>
+								<xs:enumeration value="distribution"/>
+								<xs:enumeration value="installDir"/>
+								<xs:enumeration value="installDate"/>
+								<xs:enumeration value="requireName"/>
+								<xs:enumeration value="requireVersion"/>
+								<xs:enumeration value="requireFlags"/>
+								<xs:enumeration value="conflictName"/>
+								<xs:enumeration value="conflictVersion"/>
+								<xs:enumeration value="conflictFlags"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="HpProductList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="HpProductExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="HpProductInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="version"/>
+								<xs:enumeration value="vendor"/>
+								<xs:enumeration value="installDir"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="HpPatchList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="HpPatchExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="HpPatchInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="version"/>
+								<xs:enumeration value="vendor"/>
+								<xs:enumeration value="installDir"/>
+								<xs:enumeration value="patchedPackages"/>
+								<xs:enumeration value="patchStatus"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="AixPatchList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="AixPatchExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="AixPatchInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="AixProductList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="AixProductExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="AixProductInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="version"/>
+								<xs:enumeration value="vendor"/>
+								<xs:enumeration value="description"/>
+								<xs:enumeration value="installDir"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="SunProductList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="SunProductExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="SunProductInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="version"/>
+								<xs:enumeration value="vendor"/>
+								<xs:enumeration value="installDir"/>
+								<xs:enumeration value="installDate"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="SunPatchList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="SunPatchExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="SunPatchInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="obsoletePatches"/>
+								<xs:enumeration value="requiredPatches"/>
+								<xs:enumeration value="incompatiblePatches"/>
+								<xs:enumeration value="patchedPackages"/>
+								<xs:enumeration value="patchStatus"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="IIMList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="IIMExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="IIMInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="id"/>
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="version"/>
+								<xs:enumeration value="vendor"/>
+								<xs:enumeration value="kind"/>
+								<xs:enumeration value="installDir"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="PackageInfoMatch" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="name" type="xs:string" use="optional"/>
+					<xs:attribute name="version" type="xs:string" use="optional"/>
+					<xs:attribute name="vendor" type="xs:string" use="optional"/>
+					<xs:attribute name="ignoreCase" type="xs:boolean" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="SIECatalogList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+					<xs:attribute name="name" type="xs:string" use="optional"/>
+					<xs:attribute name="showUncommittedPackages" type="xs:boolean" use="optional" default="false"/>
+					<xs:attribute name="showRemovedPackages" type="xs:boolean" use="optional" default="false"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="SIECatalogExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="name" type="xs:string" use="optional"/>
+					<xs:attribute name="showUncommittedPackages" type="xs:boolean" use="optional" default="false"/>
+					<xs:attribute name="showRemovedPackages" type="xs:boolean" use="optional" default="false"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="SIECatalogInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="version"/>
+								<xs:enumeration value="uninstData"/>
+								<xs:enumeration value="isInstalled"/>
+								<xs:enumeration value="isCommitted"/>
+								<xs:enumeration value="rebootRequired"/>
+								<xs:enumeration value="backupState"/>
+								<xs:enumeration value="isDiscovered"/>
+								<xs:enumeration value="isHidden"/>
+								<xs:enumeration value="errorState"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+					<xs:attribute name="showUncommittedPackages" type="xs:boolean" use="optional" default="false"/>
+					<xs:attribute name="showRemovedPackages" type="xs:boolean" use="optional" default="false"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="WMIPatchList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="WMIPatchExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="WMIPatchInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="HotFixID"/>
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="description"/>
+								<xs:enumeration value="bulletin"/>
+								<xs:enumeration value="installDate"/>
+								<xs:enumeration value="patchStatus"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="DpkgProductList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="DpkgProductExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="DpkgProductInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="version"/>
+								<xs:enumeration value="displayVersion"/>
+								<xs:enumeration value="description"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="I5OsProductList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="I5OsProductExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="I5OsProductInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="description"/>
+								<xs:enumeration value="version"/>
+								<xs:enumeration value="vendor"/>
+								<xs:enumeration value="installDir"/>
+								<xs:enumeration value="installedLoads"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="I5OsPTFList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="I5OsPTFExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="I5OsPTFInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="description"/>
+								<xs:enumeration value="version"/>
+								<xs:enumeration value="vendor"/>
+								<xs:enumeration value="product"/>
+								<xs:enumeration value="loadID"/>
+								<xs:enumeration value="loaded_status"/>
+								<xs:enumeration value="patchStatus"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="I5OsObjectFind" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="name" type="xs:string" use="required"/>
+					<xs:attribute name="libs" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="I5OsObjectInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="name" type="xs:string" use="optional"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="library"/>
+								<xs:enumeration value="size"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="MacProductList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="MacProductExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="MacProductInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="description"/>
+								<xs:enumeration value="version"/>
+								<xs:enumeration value="vendor"/>
+								<xs:enumeration value="installDir"/>
+								<xs:enumeration value="installDate"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="MacPkgList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="MacPkgExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="MacPkgInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="description"/>
+								<xs:enumeration value="version"/>
+								<xs:enumeration value="vendor"/>
+								<xs:enumeration value="installDir"/>
+								<xs:enumeration value="installDate"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="InstallAnywhereList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="InstallAnywhereExists" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="InstallAnywhereInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="id"/>
+								<xs:enumeration value="name"/>
+								<xs:enumeration value="version"/>
+								<xs:enumeration value="vendor"/>
+								<xs:enumeration value="vendorId"/>
+								<xs:enumeration value="installDir"/>
+								<xs:enumeration value="lastModified"/>
+								<xs:enumeration value="installDate"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="SwgProductList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="type" type="xs:string" use="optional" default="any"/>
+					<xs:attribute name="filter" type="xs:string" use="optional"/>
+					<xs:attribute name="provider" use="optional">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="any"/>
+								<xs:enumeration value="os"/>
+								<xs:enumeration value="ismp"/>
+								<xs:enumeration value="iim"/>
+								<xs:enumeration value="patch"/>
+								<xs:enumeration value="wmiPatch"/>
+								<xs:enumeration value="program"/>
+								<xs:enumeration value="appPath"/>
+								<xs:enumeration value="rpm"/>
+								<xs:enumeration value="pkg"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="SwgProductInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

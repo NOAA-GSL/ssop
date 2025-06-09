@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+
+<!-- Container -->
+<div id="container">
+{% block content %}
+
+{% if data %}<b>Data:</b><PRE>{{data}}</PRE>{% endif %}
+
+<hr>
+{% if links %}
+    <table class="table table-striped">
+      <thead>
+        <th>Links</th>
+      </thead>
+      <tbody>
+        {% for link in links %}
+          <tr><td>{{ link }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+{% endif %}
+
+<hr>
+{% if src %}<b>Source:</b><br><PRE>{{src}}</PRE>{% endif %}
+
+<hr>
+{% if template %}<b>Template:</b><br><PRE>{{template}}</PRE>{% endif %}
+
+<hr>
+{% if logouturl %}
+    <a href="{{ logouturl }}" class="btn btn-danger">Logout</a>
+{% endif %}
+
+{% endblock %}
+</div>

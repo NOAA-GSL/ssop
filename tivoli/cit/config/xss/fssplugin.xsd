@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed Materials - Property of IBM
+    TIVOCIT00
+    Copyright IBM Corp. 2005-2011. All Rights Reserved.
+    US Government Users Restricted Rights - Use, duplication or
+    disclosure restricted by GSA ADP Schedule contract with
+    IBM Corp. -->
+<xs:schema xmlns="http://www.ibm.com/Tivoli/Signatures" xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.ibm.com/Tivoli/Signatures" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xs:include schemaLocation="expressions.xsd"/>
+	<xs:element name="FindFilePath" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="name" type="xs:string" use="required"/>
+					<xs:attribute name="rootPath" type="xs:string" use="optional" default="/"/>
+					<xs:attribute name="recursive" type="xs:boolean" use="optional" default="true"/>
+					<xs:attribute name="appendFileName" type="xs:boolean" use="optional" default="false"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="FindFilePathEx" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="name" type="xs:string" use="optional"/>
+					<xs:attribute name="names" type="xs:string" use="optional"/>
+					<xs:attribute name="filter" type="xs:string" use="optional" default=""/>
+					<xs:attribute name="includeDirectories" type="xs:string" use="optional" default=""/>
+					<xs:attribute name="excludeDirectories" type="xs:string" use="optional" default=""/>
+					<xs:attribute name="recursive" type="xs:boolean" use="optional" default="true"/>
+					<xs:attribute name="appendFileName" type="xs:boolean" use="optional" default="false"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="FileInfoMatch" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="name" type="xs:string" use="required"/>
+					<xs:attribute name="rootPath" type="xs:string" use="optional" default="/"/>
+					<xs:attribute name="recursive" type="xs:boolean" use="optional" default="true"/>
+					<xs:attribute name="field" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="size"/>
+								<xs:enumeration value="inode"/>
+								<xs:enumeration value="atime"/>
+								<xs:enumeration value="mtime"/>
+								<xs:enumeration value="ctime"/>
+							</xs:restriction>
+						</xs:simpleType>
+                    </xs:attribute>
+					<xs:attribute name="values" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="ShortcutTargetList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="rootPath" type="xs:string" use="required"/>
+					<xs:attribute name="recursive" type="xs:boolean" use="optional" default="true"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="ShortcutList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="rootPath" type="xs:string" use="required"/>
+					<xs:attribute name="recursive" type="xs:boolean" use="optional" default="true"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="ShortcutInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="absolutePath" type="xs:string" use="required"/>
+					<xs:attribute name="field" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="ShortcutExist" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="absolutePath" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="ReadFile" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="path" type="xs:string" use="required"/>
+					<xs:attribute name="trim" type="xs:boolean" use="optional"/>
+					<xs:attribute name="fileType" use="optional" default="native">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="native"/>
+								<xs:enumeration value="utf8"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+                </xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="ReadFileEx" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="path" type="xs:string" use="required"/>
+					<xs:attribute name="trim" type="xs:boolean" use="optional"/>
+					<xs:attribute name="fileType" use="optional" default="native">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="native"/>
+								<xs:enumeration value="utf8"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+                </xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="PropertyValue" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="path" type="xs:string" use="required"/>
+					<xs:attribute name="propertyName" type="xs:string" use="required"/>
+					<xs:attribute name="fileType" use="optional" default="native">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="native"/>
+								<xs:enumeration value="utf8"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+                </xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="SwgScanProductList" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="includeDirectories" type="xs:string" use="optional"/>
+					<xs:attribute name="excludeDirectories" type="xs:string" use="optional"/>
+					<xs:attribute name="type" type="xs:string" use="optional"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="SwgScanProductInfo" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="code" type="xs:string" use="required"/>
+					<xs:attribute name="field" type="xs:string" use="required"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

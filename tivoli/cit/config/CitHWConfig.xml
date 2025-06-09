@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed Materials - Property of IBM
+    TIVOCIT00
+    Copyright IBM Corp. 2005-2008. All Rights Reserved.
+    US Government Users Restricted Rights - Use, duplication or
+    disclosure restricted by GSA ADP Schedule contract with
+    IBM Corp. -->
+<IBM xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <CIT>
+    <Processors>
+      <Processor Manufactor="INTEL" Type="0" Family="4" Model="0" PCX="0" Description="Intel486 DX" TypeEnum="80486"/>
+      <Processor Manufactor="INTEL" Type="0" Family="4" Model="1" PCX="0" Description="Intel486 DX" TypeEnum="80486"/>
+      <Processor Manufactor="INTEL" Type="0" Family="4" Model="2" PCX="0" Description="Intel486 SX" TypeEnum="80486"/>
+      <Processor Manufactor="INTEL" Type="0" Family="4" Model="3" PCX="0" Description="Intel487, IntelDX2, or IntelDX2 OverDrive" TypeEnum="80487"/>
+      <Processor Manufactor="INTEL" Type="0" Family="4" Model="4" PCX="0" Description="Intel486 SL" TypeEnum="80486"/>
+      <Processor Manufactor="INTEL" Type="0" Family="4" Model="5" PCX="0" Description="IntelSX2" TypeEnum="80486"/>
+      <Processor Manufactor="INTEL" Type="0" Family="4" Model="7" PCX="0" Description="Write-Back Enhanced IntelDX2" TypeEnum="80486"/>
+      <Processor Manufactor="INTEL" Type="0" Family="4" Model="8" PCX="0" Description="IntelDX4" TypeEnum="80486"/>
+      <Processor Manufactor="INTEL" Type="1" Family="4" Model="8" PCX="0" Description="IntelDX4 OverDrive" TypeEnum="80486"/>
+      <Processor Manufactor="INTEL" Type="0" Family="5" Model="1" PCX="0" Description="Intel Pentium" TypeEnum="Pentium Family"/>
+      <Processor Manufactor="INTEL" Type="0" Family="5" Model="2" PCX="0" Description="Intel Pentium" TypeEnum="Pentium Family"/>
+      <Processor Manufactor="INTEL" Type="0" Family="5" Model="1" PCX="0" Description="Intel Pentium OverDrive for Pentium 60 or 66" TypeEnum="Pentium Family"/>
+      <Processor Manufactor="INTEL" Type="1" Family="5" Model="2" PCX="0" Description="Intel Pentium OverDrive for Pentium 75, 90, 100, 120, or 133" TypeEnum="Pentium Family"/>
+      <Processor Manufactor="INTEL" Type="1" Family="5" Model="3" PCX="0" Description="Intel Pentium OverDrive for Intel486" TypeEnum="Pentium Family"/>
+      <Processor Manufactor="INTEL" Type="0" Family="5" Model="4" PCX="0" Description="Intel Pentium w/MMX technology" TypeEnum="Pentium MMX"/>
+      <Processor Manufactor="INTEL" Type="0" Family="5" Model="8" PCX="0" Description="Intel Pentium w/MMX technology" TypeEnum="Pentium MMX"/>
+      <Processor Manufactor="INTEL" Type="1" Family="5" Model="4" PCX="0" Description="Reserved for future OverDrive for Intel Pentium" TypeEnum="Pentium Family"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="1" PCX="0" Description="Intel Pentium Pro" TypeEnum="Pentium Pro"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="3" PCX="0" Description="Intel Pentium II, Model 3" TypeEnum="Pentium II"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="5" PCX="0" Description="Intel Pentium II, Model 5" TypeEnum="Pentium II"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="6" PCX="0" Description="Intel Pentium II, Model 6" TypeEnum="Pentium II"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="3" PCX="1" Description="Intel Celeron, Model 3" TypeEnum="Celeron"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="5" PCX="1" Description="Intel Celeron, Model 5" TypeEnum="Celeron"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="6" PCX="1" Description="Intel Celeron, Model 6" TypeEnum="Celeron"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="3" PCX="2" Description="Intel Pentium II Xeon, Model 3" TypeEnum="Pentium II Xeon"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="5" PCX="2" Description="Intel Pentium II Xeon, Model 5" TypeEnum="Pentium II Xeon"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="6" PCX="2" Description="Intel Pentium II Xeon, Model 6" TypeEnum="Pentium II Xeon"/>
+      <Processor Manufactor="INTEL" Type="1" Family="6" Model="3" PCX="0" Description="Reserved for future OverDrive for Intel Pentium Pro" TypeEnum="Pentium Pro"/>
+      <Processor Manufactor="INTEL" Type="0" Family="5" Model="7" PCX="0" Description="Intel Pentium" TypeEnum="Pentium Family"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="7" PCX="0" Description="Intel Pentium III" TypeEnum="Pentium III"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="7" PCX="2" Description="Intel Pentium III Xeon" TypeEnum="Pentium III"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="8" PCX="0" Description="Intel Pentium III" TypeEnum="Pentium III"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="8" PCX="2" Description="Intel Pentium III Xeon" TypeEnum="Pentium III"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="8" PCX="1" Description="Intel Celeron, Model 8" TypeEnum="Celeron"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="9" PCX="0" Description="Intel Pentium M" TypeEnum="Pentium M"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="10" PCX="2" Description="Intel Pentium III Xeon, model A" TypeEnum="Pentium III"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="10" PCX="0" Description="Intel Pentium III" TypeEnum="Pentium III"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="11" PCX="0" Description="Intel Pentium III, model B" TypeEnum="Pentium III"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="11" PCX="1" Description="Intel Celeron, Model 11" TypeEnum="Celeron"/>
+      <Processor Manufactor="INTEL" Type="0" Family="6" Model="13" PCX="0" Description="Intel Pentium M" TypeEnum="Pentium M"/>
+      <Processor Manufactor="INTEL" Type="1" Family="6" Model="3" PCX="0" Description="Intel Pentium II OverDrive" TypeEnum="Pentium II"/>
+      <Processor Manufactor="INTEL" Type="0" Family="15" Model="0" PCX="0" Description="Intel Pentium 4" TypeEnum="Pentium 4"/>
+      <Processor Manufactor="INTEL" Type="0" Family="15" Model="1" PCX="0" Description="Intel Pentium 4" TypeEnum="Pentium 4"/>
+      <Processor Manufactor="INTEL" Type="0" Family="15" Model="2" PCX="0" Description="Intel Pentium 4" TypeEnum="Pentium 4"/>
+      <Processor Manufactor="INTEL" Type="0" Family="15" Model="3" PCX="0" Description="Intel Pentium 4" TypeEnum="Pentium 4"/>
+      <Processor Manufactor="INTEL" Type="0" Family="15" Model="4" PCX="0" Description="Intel Pentium 4" TypeEnum="Pentium 4"/>
+	  <Processor Manufactor="INTEL" Type="0" Family="15" Model="6" PCX="0" Description="Inter Pentium D" TypeEnum="Pentium Family"/>	  
+      <Processor Manufactor="INTEL" Type="0" Family="15" Model="0" PCX="2" Description="Intel Xeon" TypeEnum="Intel Xeon"/>
+      <Processor Manufactor="INTEL" Type="0" Family="15" Model="1" PCX="2" Description="Intel Xeon" TypeEnum="Intel Xeon"/>
+      <Processor Manufactor="INTEL" Type="0" Family="15" Model="1" PCX="1" Description="Intel Celeron" TypeEnum="Celeron"/>
+      <Processor Manufactor="INTEL" Type="0" Family="15" Model="2" PCX="1" Description="Intel Celeron" TypeEnum="Celeron"/>
+      <Processor Manufactor="INTEL" Type="0" Family="15" Model="2" PCX="2" Description="Intel Xeon" TypeEnum="Intel Xeon"/>
+      <Processor Manufactor="INTEL" Type="0" Family="15" Model="3" PCX="2" Description="Intel Xeon" TypeEnum="Intel Xeon"/>
+      <Processor Manufactor="INTEL" Type="0" Family="15" Model="4" PCX="2" Description="Intel Xeon" TypeEnum="Intel Xeon"/>
+      <!-- processors with BrandID -->
+      <Processor Manufactor="INTEL" BrandID="1" Signature="0" Description="Intel Celeron" TypeEnum="Celeron"/>
+      <Processor Manufactor="INTEL" BrandID="2" Signature="0" Description="Intel Pentium III" TypeEnum="Pentium III"/>
+      <Processor Manufactor="INTEL" BrandID="3" Signature="1713" Description="Intel Celeron" TypeEnum="Celeron"/>
+      <Processor Manufactor="INTEL" BrandID="3" Signature="0" Description="Intel Pentium III Xeon" TypeEnum="Pentium III Xeon"/>
+      <Processor Manufactor="INTEL" BrandID="4" Signature="0" Description="Intel Pentium III" TypeEnum="Pentium III"/>
+      <Processor Manufactor="INTEL" BrandID="6" Signature="0" Description="Intel Pentium III" TypeEnum="Pentium III Processor-M"/>
+      <Processor Manufactor="INTEL" BrandID="7" Signature="0" Description="Intel Celeron" TypeEnum="Celeron"/>
+      <Processor Manufactor="INTEL" BrandID="8" Signature="3859" Description="Intel Pentium Family" TypeEnum="Genuine Processor"/>
+      <Processor Manufactor="INTEL" BrandID="8" Signature="0" Description="Intel Pentium 4" TypeEnum="Pentium 4"/>
+      <Processor Manufactor="INTEL" BrandID="9" Signature="0" Description="Intel Pentium 4" TypeEnum="Pentium 4"/>
+      <Processor Manufactor="INTEL" BrandID="10" Signature="0" Description="Intel Celeron" TypeEnum="Celeron"/>
+      <Processor Manufactor="INTEL" BrandID="11" Signature="3859" Description="Intel Xeon MP" TypeEnum="Intel Xeon MP"/>
+      <Processor Manufactor="INTEL" BrandID="11" Signature="0" Description="Intel Xeon" TypeEnum="Intel Xeon"/>
+      <Processor Manufactor="INTEL" BrandID="12" Signature="0" Description="Intel Xeon" TypeEnum="Intel Xeon MP"/>
+      <Processor Manufactor="INTEL" BrandID="14" Signature="3859" Description="Intel Xeon" TypeEnum="Intel Xeon"/>
+      <Processor Manufactor="INTEL" BrandID="14" Signature="3857" Description="Intel Xeon" TypeEnum="Intel Xeon"/>
+      <Processor Manufactor="INTEL" BrandID="14" Signature="0" Description="Intel Pentium 4" TypeEnum="Pentium 4 Processor-M"/>
+      <Processor Manufactor="INTEL" BrandID="15" Signature="0" Description="Intel Celeron" TypeEnum="Mobile Celeron"/>
+      <Processor Manufactor="INTEL" BrandID="17" Signature="0" Description="Intel Pentium M" TypeEnum="Mobile Genuine Intel Processor"/>
+      <Processor Manufactor="INTEL" BrandID="18" Signature="0" Description="Intel Celeron" TypeEnum="Intel Celeron M Processor"/>
+      <Processor Manufactor="INTEL" BrandID="19" Signature="0" Description="Intel Celeron" TypeEnum="Mobile Celeron"/>
+      <Processor Manufactor="INTEL" BrandID="20" Signature="0" Description="Intel Celeron" TypeEnum="Celeron"/>
+      <Processor Manufactor="INTEL" BrandID="21" Signature="0" Description="Intel Pentium M" TypeEnum="Mobile Genuine Intel Processor"/>
+      <Processor Manufactor="INTEL" BrandID="22" Signature="0" Description="Intel Pentium M" TypeEnum="Pentium M"/>
+      <Processor Manufactor="INTEL" BrandID="23" Signature="0" Description="Intel Celeron" TypeEnum="Mobile Celeron"/>
+      <!-- processors AMD -->
+      <Processor Manufactor="AMD" BrandID="0" Family="4" Model="0" PCX="0" Description="AMD AM486 and AM5x86" TypeEnum="K5 Family"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="5" Model="0" PCX="0" Description="AMD-K5 Model 0" TypeEnum="K5 Family"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="5" Model="1" PCX="0" Description="AMD-K5 Model 1" TypeEnum="K5 Family"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="5" Model="2" PCX="0" Description="AMD-K5 Model 2" TypeEnum="K5 Family"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="5" Model="3" PCX="0" Description="AMD-K5 Model 3" TypeEnum="K5 Family"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="5" Model="6" PCX="0" Description="AMD-K6 Model 6" TypeEnum="K6 Family"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="5" Model="7" PCX="0" Description="AMD-K6 Model 7" TypeEnum="K6 Family"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="5" Model="8" PCX="0" Description="AMD-K6-2 Model 8" TypeEnum="K6-2"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="5" Model="9" PCX="0" Description="AMD-K6-III Model 9" TypeEnum="K6-3"/>
+      <!-- processors -->
+      <Processor Manufactor="AMD" BrandID="0" Family="6" Model="1" PCX="0" Description="AMD Athlon Model 1" TypeEnum="K7"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="6" Model="2" PCX="0" Description="AMD Athlon Model 2" TypeEnum="K7"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="6" Model="3" PCX="0" Description="AMD Duron" TypeEnum="K7"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="6" Model="4" PCX="0" Description="AMD Athlon Model 4" TypeEnum="K7"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="6" Model="6" PCX="0" Description="AMD Athlon (Palomino) / Duron (Morgan)" TypeEnum="K7"/>          
+      <Processor Manufactor="AMD" BrandID="0" Family="6" Model="7" PCX="0" Description="AMD Duron (Morgan)" TypeEnum="K7"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="6" Model="8" PCX="0" Description="AMD Athlon XP (Thoroughbred)" TypeEnum="K7"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="6" Model="10" PCX="0" Description="AMD Athlon XP (Barton)" TypeEnum="K7"/>      
+      <Processor Manufactor="AMD" BrandID="0" Family="15" Model="5" PCX="0" Description="AMD Opteron" TypeEnum="AMD Opteron Family"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="15" Model="12" PCX="0" Description="AMD Athlon 64" TypeEnum="AMD Athlon 64 Family"/>      
+      <Processor Manufactor="AMD" BrandID="0" Family="15" Model="15" PCX="0" Description="AMD Athlon 64 (Winchester / Venice)" TypeEnum="AMD Athlon 64 Family"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="15" Model="4" PCX="0" Description="AMD Athlon 64 (ClawHammer)" TypeEnum="AMD Athlon 64 Family"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="15" Model="11" PCX="0" Description="AMD Athlon 64 X2 (Manchester)" TypeEnum="AMD Athlon 64 Family"/>
+      <Processor Manufactor="AMD" BrandID="0" Family="15" Model="7" PCX="0" Description="AMD Athlon 64 (San Diego)" TypeEnum="AMD Athlon 64 Family"/>
+      <!-- processors Cyrix -->
+      <Processor Manufactor="CYRIX" Family="4" Model="4" PCX="0" Description="Cyrix MediaGX(tm)" TypeEnum="MediaGX"/>
+      <Processor Manufactor="CYRIX" Family="5" Model="2" PCX="0" Description="Cyrix 6x86(tm)" TypeEnum="6x86"/>
+      <Processor Manufactor="CYRIX" Family="5" Model="4" PCX="0" Description="Cyrix GXm(tm)" TypeEnum="GXm"/>
+      <Processor Manufactor="CYRIX" Family="6" Model="0" PCX="0" Description="Cyrix 6x86MX(tm)" TypeEnum="6x86MX"/>
+      
+      <!-- Unified processor list for x86 family -->
+      <Processor Manufactor="X86" BrandID="0" Description="x86 processor" Family="Unknown" />
+      
+      <Processor Manufactor="X86" BrandID="1" Description="Intel 386" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="2" Description="Intel 486" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="3" Description="Intel Pentium" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="4" Description="Intel Pentium Pro" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="5" Description="Intel Pentium II" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="6" Description="Intel Pentium II Xeon" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="7" Description="Intel Celeron" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="8" Description="Intel Pentium III" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="9" Description="Intel Pentium III Xeon" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="10" Description="Intel Mobile Pentium III M" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="11" Description="Intel Mobile Celeron" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="12" Description="Intel Pentium 4" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="13" Description="Intel Xeon" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="14" Description="Intel Xeon MP" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="15" Description="Intel Mobile Pentium 4 M" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="16" Description="Intel Celeron M" Family="Intel" />
+      <Processor Manufactor="X86" BrandID="17" Description="Intel Pentium M" Family="Intel" />
+
+      <Processor Manufactor="X86" BrandID="31" Description="AMD K5" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="32" Description="AMD K6" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="33" Description="AMD K6-2" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="34" Description="AMD K6-3" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="35" Description="AMD Athlon" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="36" Description="AMD Duron" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="37" Description="AMD Mobile Duron" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="38" Description="AMD Athlon MP" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="39" Description="AMD Athlon XP" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="40" Description="AMD Mobile Athlon" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="41" Description="AMD Sempron" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="42" Description="AMD Mobile Sempron" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="43" Description="AMD Athlon XP M" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="44" Description="AMD Mobile Athlon XP M" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="45" Description="AMD Turion" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="46" Description="AMD Opteron" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="47" Description="AMD Athlon 64" Family="AMD" />
+      <Processor Manufactor="X86" BrandID="48" Description="AMD Mobile Athlon 64" Family="AMD" />
+      
+      <!-- processors for AIX -->
+      <Processor Manufactor="PC" Type="PowerPC,601" Family="Power PC 601"/>
+      <Processor Manufactor="PC" Type="PowerPC_601" Family="Power PC 601"/>
+      <Processor Manufactor="PC" Type="PowerPC,603" Family="Power PC 603"/>
+      <Processor Manufactor="PC" Type="PowerPC_603" Family="Power PC 603"/>
+      <Processor Manufactor="PC" Type="PowerPC,603+" Family="Power PC 603+"/>
+      <Processor Manufactor="PC" Type="PowerPC_603+" Family="Power PC 603+"/>
+      <Processor Manufactor="PC" Type="PowerPC,604" Family="Power PC 604"/>
+      <Processor Manufactor="PC" Type="PowerPC_604" Family="Power PC 604"/>
+      <Processor Manufactor="PC" Type="PowerPC,620" Family="Power PC 604"/>
+      <Processor Manufactor="PC" Type="PowerPC_620" Family="Power PC 620"/>
+      <Processor Manufactor="PC" Type="PowerPC,X704" Family="Power PC X704"/>
+      <Processor Manufactor="PC" Type="PowerPC_X704" Family="Power PC X704"/>
+      <Processor Manufactor="PC" Type="PowerPC,750" Family="Power PC 750"/>
+      <Processor Manufactor="PC" Type="PowerPC_750" Family="Power PC 750"/>
+      <Processor Manufactor="PC" Type="PowerPC,604e" Family="Power PC 604"/>
+      <Processor Manufactor="PC" Type="PowerPC,POWER3" Family="POWER3"/>
+      <Processor Manufactor="PC" Type="PowerPC,POWER4" Family="POWER4"/>
+      <Processor Manufactor="PC" Type="PowerPC,POWER5" Family="POWER5"/>
+      <Processor Manufactor="PC" Type="PowerPC,POWER6" Family="POWER6"/>
+      <!-- processors HP -->
+      <Processor Manufactor="Motorola" Type="Motorola MC68020" Model="524" Family="68020"/>
+      <Processor Manufactor="Motorola" Type="Motorola MC68030" Model="525" Family="68030"/>
+      <Processor Manufactor="Motorola" Type="Motorola MC68040" Model="526" Family="68040"/>
+      <Processor Manufactor="HP" Type="HP PA-RISC1.0" Model="523" Family="PA-RISC Family"/>
+      <Processor Manufactor="HP" Type="HP PA-RISC1.1" Model="528" Family="PA-RISC Family"/>
+      <Processor Manufactor="HP" Type="HP PA-RISC1.2" Model="529" Family="PA-RISC Family"/>
+      <Processor Manufactor="HP" Type="HP PA-RISC2.0" Model="532" Family="PA-RISC Family"/>
+      <Processor Manufactor="INTEL" Type="IA64-ARCHREV-0" Model="768" Family="IA-64"/>
+      <!-- processors Solaris -->
+      <Processor Manufactor="Solaris" Type="UltraSPARC-IIIi" Family="UltraSPARC IIIi"/>
+      <Processor Manufactor="Solaris" Type="UltraSPARC-III+" Family="UltraSPARC III+"/>
+      <Processor Manufactor="Solaris" Type="UltraSPARC-III" Family="UltraSPARC III"/>
+      <Processor Manufactor="Solaris" Type="UltraSPARC-IIi" Family="UltraSPARC IIi"/>
+      <Processor Manufactor="Solaris" Type="UltraSPARC-IIe" Family="UltraSPARC IIe"/>
+      <Processor Manufactor="Solaris" Type="UltraSPARC-II" Family="UltraSPARC II"/>
+      <Processor Manufactor="Solaris" Type="UltraSPARC" Family="UltraSPARC"/>
+      <Processor Manufactor="Solaris" Type="US-IV" Family="UltraSPARC IV"/>
+      <Processor Manufactor="Solaris" Type="US-III+" Family="UltraSPARC III+"/>
+      <Processor Manufactor="Solaris" Type="US-III" Family="UltraSPARC III"/> 
+      <Processor Manufactor="Solaris" Type="i386" Family="i386"/>     
+      <!-- processors LINUX PPC -->     
+      <Processor Manufactor="PPC" Type="604r" Family="Power PC 604"/>
+      <Processor Manufactor="PPC" Type="RS64-III" Family="RS64-III"/>
+      <Processor Manufactor="PPC" Type="RS64-II" Family="RS64-II"/>      
+      <Processor Manufactor="PPC" Type="RS64-IV" Family="RS64-IV"/>
+      <Processor Manufactor="PPC" Type="I-star" Family="RS64-III"/>
+      <Processor Manufactor="PPC" Type="S-star" Family="RS64-IV"/>
+      <Processor Manufactor="PPC" Type="RS64" Family="RS64 Family"/>
+      <Processor Manufactor="PPC" Type="-star" Family="RS64 Family"/>      
+      <Processor Manufactor="PPC" Type="POWER3" Family="POWER3"/>
+      <Processor Manufactor="PPC" Type="POWER4" Family="POWER4"/>
+      <Processor Manufactor="PPC" Type="POWER5" Family="POWER5"/>
+      <Processor Manufactor="PPC" Type="POWER" Family="POWER Family"/>
+      <!-- processors LINUX S390 -->
+      <Processor Manufactor="IBM/S390" Family="IBM390 Family"/>
+    </Processors>
+    <QCMs> <!-- IMPORTANT! If you change this table then make sure to update cpuid_power.cpp as well! -->
+      <QCM Family="POWER5+" CC="7781" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="53C7" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="53BC" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="8313" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="53BA" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="7656" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="53B4" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="252D" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="53B0" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="8333" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="53B7" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="AA52" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="AA57" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="7783" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="29AC" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="29AD" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="29AE" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="8311" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="26DD" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="26DF" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="835C" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="835D" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="257D" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="834F" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="834C" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="AA53" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+      <QCM Family="POWER5+" CC="833F" NewFamily="POWER5+ QCM" CoresPerPackage="4" />
+    </QCMs>
+  </CIT>
+</IBM>

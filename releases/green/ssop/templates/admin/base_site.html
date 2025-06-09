@@ -1,0 +1,8 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('SSOP site admin') }}{% endblock %}
+
+{% block branding %}<h1 id="site-name"><img class="d-none d-lg-block" alt="National Oceanic Atmospheric Administration" loading="auto" src="https://gsl.noaa.gov/ssop/static/packs/media/images/noaa_logo_74x74-579e5525fb247fdc7d7ce284e1cdf18d.png" />  <a href="{% url 'admin:index' %}">{{ site_header|default:_('SSOP administration') }}</a></h1>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}

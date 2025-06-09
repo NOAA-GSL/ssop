@@ -1,0 +1,43 @@
+{% extends "base_site.html" %}
+% load server_url %}
+
+{% block content %}
+  {% if error_msg %}
+     {{ error_msg }}
+  {% endif %}
+
+  {% if attributes %}
+   <div class="wrapper ">
+      {% for attr in attributes %}
+        <div class="box {{attr.2}}"><a href="{{attr.1}}"><img class="logo" src="{{attr.3}}" alt="{{attr.4}}"><hr>{{ attr.2 }}</a></div>
+      {% endfor %}
+    </div>
+    <div>
+      <hr>
+      <p>Developer?  Skip the login part and view the demo <a target="_blank" href="https://gsl.noaa.gov/ssopsb/examples/demopython.txt">python</a> or 
+      <a target="_blank" href="https://gsl.noaa.gov/ssopsb/examples/demoajax.txt">ajax</a> source code from the <a target="_blank" href="https://gsl.noaa.gov/ssopsb/">SANDBOX</a> environment.
+    </div>
+  {% endif %}
+
+  {% if showplots %}
+  <hr><hr>
+  <a target="_blank" href="/ssop/static/graphs/cbp.jpeg">
+   <img border="5" alt="A directed graph of connections between all projects, unique users, and web browsers" src="/ssop/static/graphs/cbp.jpeg">
+  </a>
+  <b>Connections to all Pojects and Unique Users</b> 
+  <hr>
+  {% if attributes %}
+   <div class="wrapper ">
+      {% for attr in attributes %}
+        <div class="box {{attr.0}}">
+          <a target="_blank" href="/ssop/static/graphs/{{attr.0}}.jpeg">
+          <img alt="A directed graph of connections between unique users and web browsers for project {{attr.0}}" src="/ssop/static/graphs/{{attr.0}}.jpeg">
+          </a>
+          <hr>Connections to {{attr.0}}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+   
+  {% endif %} <!-- showplots -->
+{% endblock %}

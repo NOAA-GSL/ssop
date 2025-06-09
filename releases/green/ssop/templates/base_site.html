@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %} {{ title }} | {% trans 'OAR Single Sign On Portal' %} {{ deploy_env }} {% endblock %}
+{% block extrastyle %}
+    {% if deploy_env_color %}
+        <style>
+            #header {
+                background-color: {{ deploy_env_color }};
+                border-bottom: solid 3px #999;
+            }
+        </style>
+        <style>
+            #branding h1 {
+                font-weight: bold;
+                color: {{ deploy_env_text_color }};
+            }
+            h1 {
+                padding-left: 20px;
+                color: {{ deploy_env_text_color }};
+            }
+        </style>
+    {% endif %}
+{% endblock %}
+
+{% block branding %}
+    <h1 id="site-name">{% trans 'OAR Single Sign On Portal' %}</h1>
+    {{ block.super }}
+{% endblock %}
+
+{% block nav-global %}{% endblock %}

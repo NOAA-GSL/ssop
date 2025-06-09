@@ -1,0 +1,31 @@
+[Unit]
+Description=Single Sign On Portal gunicorn daemon
+Requires=ssop_gunicorn.socket
+After=network.target
+
+[Service]
+Type=notify
+
+# the specific user that our service will run as
+User=authroleuser
+Group=authrolegroup
+
+# another option for an even more restricted service is
+# DynamicUser=yes
+# see http://0pointer.net/blog/dynamic-users-with-systemd.html
+WorkingDirectory=/opt/ssop
+
+ExecStart=/opt/ssop/venv/bin/gunicorn --bind unix:/run/ssop_gunicorn.sock --workers=1 --env DJANGO_SETTINGS_MODULE=ssop.settings ssop.wsgi
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+
+# Restart workers when code changes (development only!)
+reload = False
+
+# Redirect stdout/stderr to log file
+capture_output = True
+
+[Install]
+WantedBy=multi-user.target

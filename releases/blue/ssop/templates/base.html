@@ -1,0 +1,297 @@
+{% load i18n static %}
+
+<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}{% get_current_language_bidi as LANGUAGE_BIDI %}
+<html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
+<head>
+    <title>{% block title %}{% endblock %}</title>
+    <link rel="stylesheet" type="text/css"
+          href="{% block stylesheet %}https://gsl.noaa.gov/ssopsb/static/admin/css/base.css{% endblock %}"/>
+    {% block extrastyle %}{% endblock %}
+    {% if LANGUAGE_BIDI %}
+        <link rel="stylesheet" type="text/css"
+              href="{% block stylesheet_rtl %}https://gsl.noaa.gov/ssopsb/static/admin/css/rtl.css{% endblock %}"/>{% endif %}
+    {% block extrahead %}{% endblock %}
+    {% block blockbots %}
+        <meta name="robots" content="NONE,NOARCHIVE"/>{% endblock %}
+
+    <! -- from gsl.noaa.gov -->
+    <script src="/packs/js/application-83ad608674c98f33f988.js" defer="defer"></script>
+    <script async="" type="text/javascript" id="_fed_an_ua_tag" src="https://dap.digitalgov.gov/Universal-Federated-Analytics-Min.js?agency=DOC&amp;subagency=NOAA"></script>
+    <link rel="stylesheet" media="all" href="/packs/css/application-498ed2c4.css" />
+    <link rel="stylesheet" media="all" href="/assets/application-49621cfb31c9c3ce5fda143828c9352cc93c4ef63ba0bdf6cec120439b48fe3d.css" />
+    <link rel="stylesheet" type="text/css" href="/ssopsb/static/grid/css/grid.css"/>
+    <!-- <link rel="stylesheet" type="text/css" href="https://gsl.noaa.gov/ssopsb/static/grid/css/cwd.css"/> -->
+
+</head>
+{% load i18n %}
+
+<body class="{% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %}"
+      data-admin-utc-offset="{% now "Z" %}">
+  <section class="usa-banner" aria-label="Official government website">
+    <div class="usa-accordion">
+      <header class="usa-banner__header">
+        <div class="usa-banner__inner mx-0 ms-3">
+          <div class="grid-col-auto">
+            <img class="usa-banner__header-flag" alt="US Flag" src="/assets/img/us_flag_small-9c507b1ff21f65c4b8f0c45d0e0d0a10bb5c9864c1a76e07aa3293da574968a1.png" />
+          </div>
+          <div class="grid-col-fill tablet:grid-col-auto">
+            <p class="usa-banner__header-text">
+              An official website of the United States government
+            </p>
+            <p class="usa-banner__header-action" aria-hidden="true">
+              Here’s how you know
+            </p>
+          </div>
+          <button
+            class="usa-accordion__button usa-banner__button"
+            aria-expanded="false"
+            aria-controls="gov-banner-default"
+          >
+            <span class="usa-banner__button-text">Here’s how you know</span>
+          </button>
+        </div>
+      </header>
+      <div class="usa-banner__content usa-accordion__content" id="gov-banner-default">
+        <div class="grid-row grid-gap-lg">
+          <div class="usa-banner__guidance tablet:grid-col-6">
+            <img class="usa-banner__icon usa-media-block__img" alt="US Flag" aria-hidden="true" role="img" src="/assets/img/icon-dot-gov-769bd5f6cbe7cf48452e9e46c126bc1390b26ee14740883d80fe956e7dbfae3c.svg" />
+            <div class="usa-media-block__body">
+              <p>
+                <strong> Official websites use .gov </strong>
+                <br />
+                A <strong>.gov</strong> website belongs to an official government
+                organization in the United States.
+              </p>
+            </div>
+          </div>
+          <div class="usa-banner__guidance tablet:grid-col-6">
+            <img class="usa-banner__icon usa-media-block__img" alt="US Flag" aria-hidden="true" role="img" src="/assets/img/icon-https-c9eb76304db98232bf59e2f0937e2125d228bfb3f3fdd9130800ad93ba376dfb.svg" />
+            <div class="usa-media-block__body">
+              <p>
+                <strong> Secure .gov websites use HTTPS </strong>
+                <br />
+                A <strong>lock</strong> (
+                <span class="icon-lock"
+                  ><svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="52"
+                    height="64"
+                    viewBox="0 0 52 64"
+                    class="usa-banner__lock-image"
+                    role="img"
+                    aria-labelledby="banner-lock-title-default banner-lock-description-default"
+                    focusable="false"
+                  >
+                    <title id="banner-lock-title-default">Lock</title>
+                    <desc id="banner-lock-description-default">A locked padlock</desc>
+                    <path
+                      fill="#000000"
+                      fill-rule="evenodd"
+                      d="M26 0c10.493 0 19 8.507 19 19v9h3a4 4 0 0 1 4 4v28a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V32a4 4 0 0 1 4-4h3v-9C7 8.507 15.507 0 26 0zm0 8c-5.979 0-10.843 4.77-10.996 10.712L15 19v9h22v-9c0-6.075-4.925-11-11-11z"
+                    /></svg
+                ></span>
+                ) or <strong>https://</strong> means you’ve safely connected to
+                the .gov website. Share sensitive information only on official,
+                secure websites.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  {% if lapse_in_appropriations %}
+    {% block nomoney %}
+      <div>
+        <h1><b>
+        {{lapse_in_appropriations_message_top}}
+        [<a href="{{lapse_in_appropriations_message_link}}"> {{lapse_in_appropriations_link}} </a>]
+        {{lapse_in_appropriations_message_bottom}}
+        </b></h1>
+      </div>
+    {% endblock %}
+  {% endif %}
+
+  <nav class='navbar navbar-expand-xxl navbar-light bg-light'>
+
+  <div class='container-fluid'>
+  <div class='navbar-brand ms-3'>
+    <a href="/"><img class="d-none d-lg-block" alt="National Oceanic Atmospheric Administration" loading="auto" src="/packs/media/images/noaa_logo_74x74-579e5525fb247fdc7d7ce284e1cdf18d.png" /></a>
+  </div>
+  <a class="navbar-brand d-inline-block align-text-top" href="/">
+    <div class='fw-bolder'>Global Systems Laboratory</div>
+    <div class='fs-6 text-secondary'>Oceanic and Atmospheric Research</div>
+  </a>
+  </div>
+  </nav>
+
+<!-- Container -->
+<div id="container">
+
+    {% if not is_popup %}
+        <!-- Header -->
+        <div id="header">
+            <div id="branding">
+                {% block branding %}{% endblock %}
+            </div>
+            {% block usertools %}
+                {% if has_permission %}
+                    <div id="user-tools">
+                        {% block welcome-msg %}
+                            {% trans 'Welcome,' %}
+                            <strong>{% firstof user.get_short_name user.get_username %}</strong>.
+                        {% endblock %}
+                        {% block userlinks %}
+                            {% if site_url %}
+                                <a href="/admin/sites">{% trans 'View site' %}</a>
+                                /
+                            {% endif %}
+                            {% if user.is_active and user.is_staff %}
+                                {% url 'django-admindocs-docroot' as docsroot %}
+                                {% if docsroot %}
+                                    <a href="{{ docsroot }}">{% trans 'Documentation' %}</a> /
+                                {% endif %}
+                            {% endif %}
+                            {% if user.has_usable_password %}
+                                <a href="{% url 'admin:password_change' %}">{% trans 'Change password' %}</a> /
+                            {% endif %}
+                            <a href="{% url 'logout' %}">{% trans 'Log out' %}</a>
+                        {% endblock %}
+                    </div>
+                {% endif %}
+            {% endblock %}
+            {% block nav-global %}{% endblock %}
+        </div>
+        <!-- END Header -->
+    {% endif %}
+
+    {% block messages %}
+        {% if messages %}
+            <ul class="messagelist">{% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message|capfirst }}</li>
+            {% endfor %}</ul>
+        {% endif %}
+    {% endblock messages %}
+
+    <!-- Content -->
+    <div id="content" class="{% block coltype %}colM{% endblock %}">
+        {% block pretitle %}{% endblock %}
+        {% block content_title %}{% if title %}<h1>{{ title }}</h1>{% endif %}{% endblock %}
+        {% block content %}
+            {% block object-tools %}{% endblock %}
+            {{ content }}
+        {% endblock %}
+        {% block sidebar %}{% endblock %}
+        <br class="clear"/>
+
+      {% block footer %}
+        <div id="footer">
+          <footer>
+          <div class='usa-footer__primary-section'>
+          <div class='grid-container'>
+          <nav class='usa-footer__nav'>
+          <ul class='grid-row grid-gap'>
+          <li class='mobile-lg:grid-col-4 desktop:grid-col-auto usa-footer__primary-content'>
+          <a class="usa-footer__primary-link" href="/contacts">Contact</a>
+          </li>
+          <li class='mobile-lg:grid-col-4 desktop:grid-col-auto usa-footer__primary-content'>
+          <a class="usa-footer__primary-link content_feature_request" target="new" href="https://forms.gle/KhYtP23jHdXCoie16">Content / Feature Request</a>
+          </li>
+          </ul>
+          </nav>
+          </div>
+          </div>
+          <div class='usa-footer__secondary-section'>
+
+          <div class='grid-container'>
+          <div class='grid-row grid-gap'>
+          <div class='usa-footer__logo grid-row mobile-lg:grid-col-6 mobile-lg:grid-gap-2'>
+          <div class='mobile-lg:grid-col-auto'>
+          <img alt="National Oceanic Atmosphere Administration" loading="auto" src="/packs/media/images/noaa_logo_pos-6c3e0d0f24cb98e1d235544e3216d676.png" width="348" height="74" />
+          </div>
+          </div>
+          <div class='usa-footer__contact-links mobile-lg:grid-col-6'>
+          <div class="usa-footer__social-links grid-row grid-gap-0">
+              <div class="grid-col-auto">
+                  <a alt="facebook" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="Friendly warning, you are about to proceed to an external website." href="https://facebook.com/NOAAESRL"><img class="usa-media-block__img circle" alt="Facebook" loading="auto" src="/packs/media/images/facebook_48-f907784683c9efb4fbccf5665463d87b.png" /></a>
+              </div> 
+              <div class="grid-col-auto">                            
+                  <a alt="Instagram" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="Friendly warning, you are about to proceed to an external website." href="https://www.instagram.com/noaa/"><img class="usa-media-block__img circle" alt="Instagram" loading="auto" src="/packs/media/images/instagram_48-ff86eb598ca653dbf7f55325f6aadb09.png" /></a>     
+              </div>
+              <div class="grid-col-auto">   
+                  <a alt="twitter" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="Friendly warning, you are about to proceed to an external website." href="https://twitter.com/NOAA_ESRL"><img class="usa-media-block__img circle" alt="Twitter" loading="auto" src="/packs/media/images/twitter_48-8178564448658fe33e94ea6c000dc0c2.png" /></a>
+              </div>
+              <div class="grid-col-auto">  
+                  <a alt="youtube" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="Friendly warning, you are about to proceed to an external website." href="https://www.youtube.com/channel/UC6vw9i5wr-a8JEpKN4AN-AQ"><img class="usa-media-block__img circle" alt="YouTube" loading="auto" src="/packs/media/images/playbutton_48-ab280cf2e1ab36732d1bc209a0f97684.png" /></a>
+              </div>
+          </div>
+          
+          <h3 class='usa-footer__contact-heading'>Address</h3>
+          <address class='usa-footer__address'>
+          <div class='usa-footer__contact-info grid-row grid-gap'>
+          <div class='grid-col-auto'>
+          <address>
+          National Oceanic and Atmospheric Administration
+          <br>325 Broadway Boulder, Colorado</br>
+          80305-3328, USA
+          </address>
+          </div>
+          </div>
+          </address>
+          
+          </div>
+          </div>
+          </div>
+          </div>
+          <div class='footer-section-bottom padding-1'>
+          <div class='grid-container'>
+          <div class='grid-row'>
+          National Oceanic and Atmospheric Administration
+          &copy;
+          2023
+          &#xb7;
+          All Rights Reserved
+          &#xb7;
+          2023-01-24
+          </div>
+          <div class='grid-col-auto'>
+          <ul class='list-inline'>
+          <li class='list-inline-item'>
+          <a target="new" href="https://www.noaa.gov/disclaimer">Disclaimer</a>
+          <i class="mx-1 bi bi-box-arrow-up-right"></i>
+          </li>
+          <li class='list-inline-item'>
+          <a target="new" href="https://gsl.noaa.gov/learn/job-opportunities">Job and Internship Opportunities</a>
+          <i class="mx-1 bi bi-box-arrow-up-right"></i>
+          </li>
+          <li class='list-inline-item'>
+          <a target="new" href="https://www.noaa.gov/protecting-your-privacy">Privacy</a>
+          <i class="mx-1 bi bi-box-arrow-up-right"></i>
+          </li>
+          <li class='list-inline-item'>
+          <a href="https://gsl.noaa.gov/who/strategy-and-goals/science-review">Science Review</a>
+          </li>
+          <li class='list-inline-item'>
+          <a href="/directory">Staff Directory</a>
+          </li>
+          <li class='list-inline-item'>
+          <a target="new" href="https://sites.google.com/noaa.gov/gsl-staff-resources/home">Staff Resources</a>
+          <i class="mx-1 bi bi-box-arrow-up-right"></i>
+          </li>
+          </ul>
+          </div>
+          </div>
+          </div>
+          
+          </footer>
+        </div>
+      {% endblock %}
+    </div>
+    <!-- END Content -->
+</div>
+<!-- END Container -->
+</body>
+</html>

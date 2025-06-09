@@ -1,0 +1,8 @@
+[Unit]
+Description=Single Sign One Portal gunicorn socket
+
+[Socket]
+ListenStream=/run/ssop_gunicorn.sock
+
+[Install]
+WantedBy=sockets.target

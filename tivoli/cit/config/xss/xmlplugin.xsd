@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed Materials - Property of IBM
+    TIVOCIT00
+    Copyright IBM Corp. 2005. All Rights Reserved.
+    US Government Users Restricted Rights - Use, duplication or
+    disclosure restricted by GSA ADP Schedule contract with
+    IBM Corp. -->
+<xs:schema xmlns="http://www.ibm.com/Tivoli/Signatures" xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.ibm.com/Tivoli/Signatures" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xs:include schemaLocation="expressions.xsd"/>
+	<xs:element name="XmlValue" substitutionGroup="ScalarOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="xpath" type="xs:string" use="required"/>
+					<xs:attribute name="file" type="xs:string" use="required"/>
+					<xs:attribute name="mustExist" type="xs:boolean" use="optional" default="false"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="XmlValues" substitutionGroup="VectorOperand">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="OperandType">
+					<xs:attribute name="xpath" type="xs:string" use="required"/>
+					<xs:attribute name="file" type="xs:string" use="required"/>
+					<xs:attribute name="mustExist" type="xs:boolean" use="optional" default="false"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

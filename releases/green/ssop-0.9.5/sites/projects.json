@@ -1,0 +1,83 @@
+{
+  "SSOP": {
+           "display_order": "1",
+           "queryparam": "True",
+           "enabled": "True",
+           "verbose_name": "View your user attributes",
+           "organization": "GSL",
+           "return_to": "https://gsl.noaa.gov/ssopsb/ldg_authenticated",
+           "error_redirect": "https://gsl.noaa.gov/ssopsb/oops"
+          },
+  "demopy": {
+           "display_order": 2,
+           "queryparam": "True",
+           "enabled": "True",
+           "verbose_name": "A demonstration view using python",
+           "organization": "GSL -- ITS",
+           "return_to": "https://gsl.noaa.gov/ssopsb/demopy",
+           "error_redirect": "https://gsl.noaa.gov/ssopsb/oops"
+          },
+  "demoajax": {
+           "display_order": 3,
+           "queryparam": "True",
+           "enabled": "True",
+           "verbose_name": "A demonstration using AJAX",
+           "organization": "GSL -- ITS",
+           "return_to": "https://gsl.noaa.gov/ssopsb/examples/demoajax.html",
+           "error_redirect": "https://gsl.noaa.gov/ssopsb/oops"
+          },
+  "firewxtb": {
+           "display_order": 4,
+           "queryparam": "True",
+           "enabled": "True",
+           "verbose_name": "Fire Weather Testbed",
+           "organization": "GSL -- WIDS",
+           "return_to": "https://gsl.noaa.gov/ssopsb/firewxtb",
+           "error_redirect": "https://gsl.noaa.gov/ssopsb/firewxtboops"
+          },
+  "nvods": {
+           "display_order": 5,
+           "queryparam": "True",
+           "enabled": "True",
+           "verbose_name": "National Virtual Ocean Data System (NVDOS)",
+           "organization": "PMEL",
+           "return_to": "https://data.pmel.noaa.gov/nvods/las/",
+           "error_redirect": "https://data.pmel.noaa.gov/nvods/ssopoops"
+          },
+  "desi": {
+           "display_order": 6,
+           "queryparam": "True",
+           "enabled": "True",
+           "verbose_name": "Dynamic Ensemble-based Scenarios for IDSS",
+           "organization": "GSL -- WIDS - WIZARD",
+           "return_to": "https://sites.gsl.noaa.gov/desi/",
+           "error_redirect": "https://gsl.noaa.gov/ssopsb/oops"
+          },
+  "awspub": {
+           "display_order": 7,
+           "queryparam": "True",
+           "enabled": "True",
+           "verbose_name": "GSL AWS Public Nginx",
+           "organization": "GSL -- WIDS - WIZARD",
+           "return_to": "https://sites.gsl.noaa.gov/test-js2/",
+           "error_redirect": "https://gsl.noaa.gov/ssopsb/oops"
+          },
+  "mats-int": {
+           "display_order": 8,
+           "queryparam": "False",
+           "enabled": "True",
+           "verbose_name": "INTEGRATION Model Analysis Tool Suite (MATS)",
+           "organization": "GSL -- ASCEND",
+           "return_to": "https://esrl.noaa.gov/gsd/int-mats/",
+           "error_redirect": "https://esrl.noaa.gov/gsd/int-mats/ssopoops"
+          },
+  "rr": {
+           "display_order": 9,
+           "queryparam": "True",
+           "enabled": "True",
+           "verbose_name": "Rapid Refresh",
+           "organization": "GSL -- ASCEND",
+           "return_to": "https://rapidrefresh.noaa.gov",
+           "error_redirect": "https://gsl.noaa.gov/ssopsb/oops"
+          }
+}

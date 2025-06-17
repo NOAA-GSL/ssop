@@ -1,107 +1,3 @@
-cd ..
-ls
-python3 manage.py makemigrations sites
-ls
-grep userlist *
-grep userlist */*
-pwd
-ls
-cd sites/
-ls
-vi forms.py 
-ls
-cd ..
-ls
-cd db
-ls
-cat setup_db.sql 
-mysql -u developer -p
-ls
-cd ..
-ls
-cd sites/
-ls
-vi models.py 
-cd ..
-python3 manage.py makemigrations
-vi sites/models.py 
-python3 manage.py makemigrations
-python3 manage.py migrate
-cd ../db
-ls
-cd db
-cat setup_db.sql 
-mysql -u developer -p
-ls
-cd ..
-ls
-python3 manage.py migrate
-cd /opt/releases/green/ssop
-ls
-cd db
-ls
-cat setup_db.sql 
-mysql -u developer -p
-cd ..
-ls
-cd templates/
-ls
-cd admin/
-ls
-vi base_site.html 
-vi base.html 
-exit
-cd /opt/releases/green/ssop
-ls
-cd logindotgov/
-ls
-cd certs/
-ls
-cat public.crt 
-cd /opt/releases/green/ssop
-ls
-grep identitysandbox *
-vi secrets.json 
-cd /opt/releases/green/ssop/sites/
-ls
-vi models.py 
-diff admin.py ../../ssop-0.9.5/sites/admin.py 
-vi admin.py 
-diff admin.py ../../ssop-0.9.5/sites/admin.py 
-vi admin.py 
-diff admin.py ../../ssop-0.9.5/sites/admin.py 
-cd /var/log/ssoprole/
-ls
-ls -lart
-tail ssop_production.log 
-ls
-pwd
-cd /opt/releases/green/ssop/sites/
-vi models.py 
-cd ..
-ls
-source venv/bin/activate
-ls
-python3 ./manage.py 
-cd sites/management/commands/
-ls
-vi add_none_email.py
-cd ../../..
-python3 ./manage.py 
-python3 ./manage.py add_none_email
-vi sites/management/commands/add_none_email.py 
-grep add_none sites/models.py 
-cd sites/management/commands/
-ls
-mv add_none_email.py add_none_contact.py
-ls -l
-vi add_none_contact.py 
-cd ../../..
-python3 ./manage.py add_none_contact
-vi sites/management/commands/add_none_contact.py 
-vi sites/models.py 
-pwd
-python3 ./manage.py add_none_contact
 vi sites/models.py 
 python3 ./manage.py add_none_contact
 vi sites/models.py 
@@ -997,4 +893,108 @@ cd ..
 ls
 ls -la
 pip cache purge
+exit
+pwd
+ls
+cd ..
+ls
+cd releases/
+ls
+cd green/
+ls
+cd ssop
+ls
+cd logindotgov/
+ls
+cd certs
+ls
+cd .
+ls
+openssl req -nodes -x509 -days 365 -newkey rsa:2048 -keyout private.pem -out public.crt
+ls
+ls -la
+cat public.crt 
+pwd
+ls -la
+scp renn.valo@gsl-webssop:/opt/public.crt ~/Downloads/
+pwd
+scp renn.valo@gsl-webssop:/opt/releases/green/ssop/logindotgov/certspublic.crt ~/Downloads/
+ls
+cat public.crt 
+ls
+pwd 
+ls
+pwd
+cp private.pem public.crt /opt/releases/blue/ssop/logindotgov/certs
+cd /opt/releases/blue/ssop/logindotgov/certs
+ls -la
+pwd
+exit
+ls
+cd green
+ls
+cd ssop
+ls
+cd urls
+ls
+grep 'acr_values'
+grep -rnw . -e 'acr_values'
+grep -rn 'acr_values' .
+ls
+cd ..
+ls
+grep -rn 'acr_values' .
+sudo grep -rn 'acr_values' .
+sudo grep -rn 'settings.LOGINDOTGOV_ACR' .
+grep -rn 'settings.LOGINDOTGOV_ACR' .
+ls
+cd ssop
+cd green
+ls
+cd ssop/sites/views.py 
+cd ssop/sites/
+ls
+cat views.py
+vi views.py 
+ls
+cd ..
+ls
+cd ssop
+ls
+vi settings.py 
+ls
+cd ..
+s
+ls
+cd sites
+ls
+vi views.py 
+cd ..
+ls
+cd ssop
+ls
+vi settings.py 
+ls
+cd ..
+ls
+pwd
+cd ssop
+pwd
+git status
+pwd
+exit
+cd /opt
+ls
+git status
+cd ..
+ls
+git status
+cd ..
+ls
+cd /opt
+ls
+ls -la
+cat .git
+git status
+sudo su
 exit

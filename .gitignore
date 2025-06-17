@@ -1,6 +1,9 @@
 db/setup_db.sql
 logindotgov
 secrets.json
+.ssh
+ssop/.ssh/
+ssop/.bash_history
 sites/migrations
 ssop/db.sqlite3
 venv

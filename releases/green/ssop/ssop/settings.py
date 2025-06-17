@@ -456,7 +456,7 @@ LOGINDOTGOV_CLIENT_ID = 'urn:gov:gsa:openidconnect.profiles:sp:sso:noaa_oar:oars
 
 
 # Basic identity assurance, does not require identity verification (this is the most common value).
-LOGINDOTGOV_ACR = 'http://idmanagement.gov/ns/assurance/ial/2'
+LOGINDOTGOV_ACR = 'http://idmanagement.gov/ns/assurance/ial/1'
 #LOGINDOTGOV_ACR = 'http://idmanagement.gov/ns/assurance/ial/2?phishing_resistant=true'
 #LOGINDOTGOV_ACR = 'http://idmanagement.gov/ns/assurance/ial/2?hspd12=true'
 LOGINDOTGOV_CLIENT_ASSERTION_TYPE = 'urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer'

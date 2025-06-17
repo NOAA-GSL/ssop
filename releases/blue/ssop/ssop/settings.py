@@ -504,7 +504,7 @@ LOGINDOTGOV_IDP_SERVER = 'https://secure.login.gov'
 LOGINDOTGOV_CLIENT_ID = 'urn:gov:gsa:openidconnect.profiles:sp:sso:noaa_oar:oarssop'
 
 # Basic identity assurance, does not require identity verification (this is the most common value).
-LOGINDOTGOV_ACR = 'http://idmanagement.gov/ns/assurance/ial/2'
+LOGINDOTGOV_ACR = 'http://idmanagement.gov/ns/assurance/ial/1'
 LOGINDOTGOV_CLIENT_ASSERTION_TYPE = 'urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer'
 LOGINDOTGOV_SCOPE = 'openid+email+profile+first_name+last_name'
 LOGINDOTGOV_RETURN_TO = 'https://gsl.noaa.gov/ssop/ldg_authenticated'
